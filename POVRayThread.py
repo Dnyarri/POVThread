@@ -48,7 +48,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.26.20.8'  # Main version № match that of export module
+__version__ = '1.27.4.22'  # Main version № match that of export module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -624,8 +624,10 @@ zanyato.pack(side='top')
 # ↓ Whole sortir binding menu, "Open..." and "Exit"
 sortir.bind_all('<Button-3>', ShowMenu)
 sortir.bind_all('<Alt-f>', ShowMenu)
-sortir.bind_all('<Control-o>', GetSource)
 sortir.bind_all('<Control-q>', DisMiss)
+sortir.bind_all('<Control-Q>', DisMiss)
+sortir.bind_all('<Control-w>', DisMiss)
+sortir.bind_all('<Control-W>', DisMiss)
 
 # ↓ Center window horizontally, +100 vertically
 sortir.update()
