@@ -12,8 +12,15 @@ Input: PNG, PPM, PGM.
 
 Output: `POV-Ray <https://www.povray.org/>`_.
 
-Created by: `Ilya Razmanov<mailto:ilyarazmanov@gmail.com>`_
-aka `Ilyich the Toad<mailto:amphisoft@gmail.com>`_.
+**POV-Ray Thread** provides converting images
+and image-like nested lists to an assembly of 3D objects,
+colored after source pixels, and forming a simulation of:
+
+- plain weave textile (with "Linen" export);
+- cross stitch (with "Stitch" export).
+
+Objects may be displaced when rendering, based on POV-Ray internal
+Perlin noise, simulating canvas deformation.
 
 ----
 Main site: `The Toad's Slimy Mudhole`_
@@ -48,7 +55,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.27.8.8'  # Main version № match that of export module
+__version__ = '1.27.22.18'  # Main version № match that of export module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -239,7 +246,10 @@ def GetSource(event=None) -> None:
     spin02.unbind('<MouseWheel>')
     spin02.bind('<MouseWheel>', incWheel)
     UINormal()
-    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+{(sortir.winfo_screenheight() - sortir.winfo_height()) // 2 - 32}')
+    h_spacer = sortir.winfo_reqwidth()
+    v_spacer = sortir.winfo_reqheight()
+    sortir.minsize(h_spacer, v_spacer)
+    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+{(sortir.winfo_screenheight() - sortir.winfo_reqheight()) // 2 - 32}')
     zanyato.focus_set()
 
 
@@ -632,7 +642,9 @@ sortir.bind_all('<Control-W>', DisMiss)
 # ↓ Center window horizontally, +100 vertically
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
-sortir.minsize(frame_top.winfo_width(), 320)
+h_spacer = max(frame_top.winfo_reqwidth(), info_string.winfo_reqwidth())
+v_spacer = sortir.winfo_reqheight()
+sortir.minsize(h_spacer, v_spacer)
 sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+100')
 
 sortir.mainloop()
