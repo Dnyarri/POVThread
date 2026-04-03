@@ -41,21 +41,22 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 
 # History:
 # --------
-# 0.10.14.0   Initial version of filter host template - 14 Oct 2024. Using png in tempfile preview etc.
-# 1.16.6.9    Public release of this GUI.
-# 1.16.9.14   Preview switch source/result added. Zoom on click now mimic
-#       Photoshop Ctrl + Click and Alt + Click.
-# 1.16.20.20  Changed GUI to menus.
-# 1.20.20.1   Numerous minor GUI improvements and code cleanup.
-# 1.23.1.1    Even more numerous GUI improvements, including spinbox control with mousewheel.
-# 1.26.8.8    Minimal debugging, some code restructure to simplify further editing.
-# 1.26.20.8   Better Spinbox validation.
+# 0.10.14.0     Initial version of filter host template - 14 Oct 2024. Using png in tempfile preview etc.
+# 1.16.6.9      Public release of this GUI.
+# 1.16.9.14     Preview switch source/result added. Zoom on click now mimic
+#               Photoshop Ctrl + Click and Alt + Click.
+# 1.16.20.20    Changed GUI to menus.
+# 1.20.20.1     Numerous minor GUI improvements and code cleanup.
+# 1.23.1.1      Even more numerous GUI improvements, including spinbox control with mousewheel.
+# 1.26.8.8      Minimal debugging, some code restructure to simplify further editing.
+# 1.26.20.8     Better Spinbox validation.
+# 1.28.3.8      UI have the potential to become standard.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.27.22.18'  # Main version № match that of export module
+__version__ = '1.28.3.8'  # Main version № match that of export module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -246,10 +247,10 @@ def GetSource(event=None) -> None:
     spin02.unbind('<MouseWheel>')
     spin02.bind('<MouseWheel>', incWheel)
     UINormal()
-    h_spacer = sortir.winfo_reqwidth()
-    v_spacer = sortir.winfo_reqheight()
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
     sortir.minsize(h_spacer, v_spacer)
-    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+{(sortir.winfo_screenheight() - sortir.winfo_reqheight()) // 2 - 32}')
+    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
     zanyato.focus_set()
 
 
@@ -316,6 +317,10 @@ def zoomIn(event=None) -> None:
         butt_plus.config(state='disabled', cursor='arrow')
     else:
         butt_plus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomOut(event=None) -> None:
@@ -335,6 +340,10 @@ def zoomOut(event=None) -> None:
         butt_minus.config(state='disabled', cursor='arrow')
     else:
         butt_minus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomOne(event=None) -> None:
@@ -351,6 +360,10 @@ def zoomOne(event=None) -> None:
     # ↓ Reenabling +/- buttons
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomWheel(event) -> None:
@@ -642,9 +655,12 @@ sortir.bind_all('<Control-W>', DisMiss)
 # ↓ Center window horizontally, +100 vertically
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
-h_spacer = max(frame_top.winfo_reqwidth(), info_string.winfo_reqwidth())
-v_spacer = sortir.winfo_reqheight()
+# ↓ Readopting minsize
+h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
 sortir.minsize(h_spacer, v_spacer)
-sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+100')
+# ↓ Setting maxsize to fit 90% of screen
+sortir.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
+sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
 
 sortir.mainloop()

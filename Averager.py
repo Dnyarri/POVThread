@@ -10,9 +10,9 @@ and next pixel in a row reach threshold. Then repeat the same in column.
 Thus filter changes smooth image areas to completely flat colored,
 with detailed edges between them.
 
-`Averager`_ was initially created as `POV-Ray Thread`_ auxiliary but later on
-evolved from small accessory for testing filter module to
-an interesting example of pure Python image filtering application.
+`Averager`_ was initially created as `POV-Ray Thread`_ auxiliary
+but later on evolved from small accessory for testing filter module
+to an interesting example of pure Python image filtering application.
 
 Input: PNG, PPM, PGM, PBM.
 
@@ -33,7 +33,7 @@ Main site: `The Toad's Slimy Mudhole`_
 
 POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 
-.. _@Github: https://github.com/Dnyarri/POVthread
+.. _@Github: https://github.com/Dnyarri/POVThread
 
 .. _@Gitflic: https://gitflic.ru/project/dnyarri/povthread
 
@@ -41,30 +41,32 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 
 # History:
 # --------
-# 0.10.14.0   Initial version of filter host template - 14 Oct 2024.
-#       Using png in tempfile preview etc.
-# 0.10.17.3   Linked standalone version.
-# 1.14.1.1    Preview etc with builtin PyPNM. Image list moved to global
-#       to reduce rereading.
-# 1.16.4.24   PNG and PPM support, zoom in and out, numerous fixes.
-# 1.16.9.14   Preview switch source/result added. Zoom on click now mimic
-#       Photoshop Ctrl + Click and Alt + Click.
-# 2.16.20.20  Changed GUI to menus.
-# 3.20.8.8    Changed GUI to grid to fit all new features. More detailed image info;
-#       image mode and edited/saved status displayed in window title
-#       and task manager) a-la Photoshop.
-# 1.23.1.1    Even more GUI improvements, including spinbox control with mousewheel.
-# 3.24.14.14  Suitable filter execution time display added to info string.
-#       Result may be copied to clipboard on info string Ctrl+Click.
-# 3.26.8.8    Several bugs fixed, memory requirements reduced due to substantial
-#       onSave() changes. New bugs are highly likely to arise, yet not found yet.
-# 3.26.20.8   Better Spinbox validation.
+# 0.10.14.0     Initial version of filter host template - 14 Oct 2024.
+#               Using png in tempfile preview etc.
+# 0.10.17.3     Linked standalone version.
+# 1.14.1.1      Preview etc with builtin PyPNM. Image list moved to global
+#               to reduce rereading.
+# 1.16.4.24     PNG and PPM support, zoom in and out, numerous fixes.
+# 1.16.9.14     Preview switch source/result added. Zoom on click now mimic
+#               Photoshop Ctrl + Click and Alt + Click.
+# 2.16.20.20    Changed GUI to menus.
+# 3.20.8.8      Changed GUI to grid to fit all new features. More detailed image info;
+#               image mode and edited/saved status displayed in window title
+#               and task manager) a-la Photoshop.
+# 1.23.1.1      Even more GUI improvements, including spinbox control with mousewheel.
+# 3.24.14.14    Suitable filter execution time display added to info string.
+#               Result may be copied to clipboard on info string Ctrl+Click.
+# 3.26.8.8      Several bugs fixed, memory requirements reduced due to substantial
+#               onSave() changes. New bugs are highly likely to arise, 
+#               yet not found yet.
+# 3.26.20.8     Better Spinbox validation.
+# 3.28.3.8      UI have the potential to become standard.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.27.22.18'  # Main version № match that of filter module
+__version__ = '3.28.3.8'  # Main version № match that of filter module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -123,6 +125,7 @@ def UINormal() -> None:
     if Z == 1 or Z == 3:  # "Keep alpha" checkbox
         check02['state'] = 'disabled'
         check02['cursor'] = 'arrow'
+    sortir['cursor'] = ''
     sortir.update()
 
 
@@ -132,9 +135,10 @@ def UIBusy() -> None:
     for widget in frame_top.winfo_children():
         if widget.winfo_class() in ('Label', 'Button', 'Spinbox', 'Checkbutton'):
             widget['state'] = 'disabled'
-        if widget.winfo_class() == 'Button':
-            widget['cursor'] = 'arrow'
+        if widget.winfo_class() in ('Button', 'Label'):
+            widget['cursor'] = 'wait'
     info_string.config(text=info_busy['txt'], foreground=info_busy['fg'], background=info_busy['bg'])
+    sortir['cursor'] = 'wait'
     sortir.update()
 
 
@@ -274,10 +278,10 @@ def GetSource(event=None) -> None:
     spin02.unbind('<MouseWheel>')
     spin02.bind('<MouseWheel>', incWheel)
     UINormal()
-    h_spacer = sortir.winfo_reqwidth()
-    v_spacer = sortir.winfo_reqheight()
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
     sortir.minsize(h_spacer, v_spacer)
-    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+{(sortir.winfo_screenheight() - sortir.winfo_reqheight()) // 2 - 32}')
+    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
     zanyato.focus_set()
 
 
@@ -357,6 +361,10 @@ def zoomIn(event=None) -> None:
         butt_plus.config(state='disabled', cursor='arrow')
     else:
         butt_plus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomOut(event=None) -> None:
@@ -376,6 +384,10 @@ def zoomOut(event=None) -> None:
         butt_minus.config(state='disabled', cursor='arrow')
     else:
         butt_minus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomOne(event=None) -> None:
@@ -392,6 +404,10 @@ def zoomOne(event=None) -> None:
     # ↓ Reenabling +/- buttons
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
+    # ↓ Readopting minsize
+    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(h_spacer, v_spacer)
 
 
 def zoomWheel(event) -> None:
@@ -770,10 +786,12 @@ sortir.bind_all('<Control-W>', DisMiss)
 # ↓ Center window horizontally, +100 vertically
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
-h_spacer = max(frame_top.winfo_reqwidth(), info_string.winfo_reqwidth())
-v_spacer = sortir.winfo_reqheight()
+# ↓ Readopting minsize
+h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
 sortir.minsize(h_spacer, v_spacer)
+# ↓ Setting maxsize to fit 90% of screen
 sortir.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
-sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+100')
+sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
 
 sortir.mainloop()
