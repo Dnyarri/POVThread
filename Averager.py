@@ -57,16 +57,16 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 # 3.24.14.14    Suitable filter execution time display added to info string.
 #               Result may be copied to clipboard on info string Ctrl+Click.
 # 3.26.8.8      Several bugs fixed, memory requirements reduced due to substantial
-#               onSave() changes. New bugs are highly likely to arise, 
+#               onSave() changes. New bugs are highly likely to arise,
 #               yet not found yet.
 # 3.26.20.8     Better Spinbox validation.
-# 3.28.3.8      UI have the potential to become standard.
+# 3.28.6.8      UI have the potential to become standard.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.28.3.8'  # Main version № match that of filter module
+__version__ = '3.28.6.8'  # Main version № match that of filter module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -121,6 +121,8 @@ def UINormal() -> None:
             widget['state'] = 'normal'
         if widget.winfo_class() in ('Button', 'Checkbutton'):
             widget['cursor'] = 'hand2'
+        if widget.winfo_class() in ('Label',):
+            widget['cursor'] = 'arrow'
     info_string.config(text=info_normal['txt'], foreground=info_normal['fg'], background=info_normal['bg'])
     if Z == 1 or Z == 3:  # "Keep alpha" checkbox
         check02['state'] = 'disabled'
@@ -142,6 +144,15 @@ def UIBusy() -> None:
     sortir.update()
 
 
+def UIFit() -> None:
+    """Readopting minsize."""
+
+    sortir.update()
+    fit_width = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
+    fit_height = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
+    sortir.minsize(fit_width, fit_height)
+
+
 def ShowPreview(preview_name: PhotoImage, caption: str) -> None:
     """Show preview_name PhotoImage with caption below."""
 
@@ -160,7 +171,6 @@ def ShowPreview(preview_name: PhotoImage, caption: str) -> None:
         label_zoom['text'] = 'Zoom 1:1'
 
     zanyato.config(text=caption, font=('helvetica', 8), image=preview, compound='top', padx=0, pady=0, justify='center', background=zanyato.master['background'], relief='flat', borderwidth=1, state='normal')
-    zanyato.pack_configure(pady=max(0, 16 - (preview.height() // 2)))
 
 
 def GetSource(event=None) -> None:
@@ -278,9 +288,7 @@ def GetSource(event=None) -> None:
     spin02.unbind('<MouseWheel>')
     spin02.bind('<MouseWheel>', incWheel)
     UINormal()
-    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
-    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
-    sortir.minsize(h_spacer, v_spacer)
+    UIFit()
     sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
     zanyato.focus_set()
 
@@ -335,7 +343,8 @@ def RunFilter(event=None) -> None:
     # ↓ Binding global
     sortir.bind_all('<Control-s>', Save)
     # ↓ Binding switch on preview click
-    zanyato.bind('<Button-1>', SwitchView)  # left click
+    zanyato.bind('<Button-1>', SwitchView)
+    zanyato.bind('<ButtonRelease-1>', SwitchView)
     zanyato.bind('<space>', SwitchView)  # # "Space" key. May be worth binding whole sortir?
     # ↓ Adding filename, mode and status to window title a-la Photoshop
     sortir.title(f'{product_name}: {Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""}')
@@ -361,10 +370,8 @@ def zoomIn(event=None) -> None:
         butt_plus.config(state='disabled', cursor='arrow')
     else:
         butt_plus.config(state='normal', cursor='hand2')
-    # ↓ Readopting minsize
-    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
-    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
-    sortir.minsize(h_spacer, v_spacer)
+    UIFit()
+    sortir.update()
 
 
 def zoomOut(event=None) -> None:
@@ -384,10 +391,8 @@ def zoomOut(event=None) -> None:
         butt_minus.config(state='disabled', cursor='arrow')
     else:
         butt_minus.config(state='normal', cursor='hand2')
-    # ↓ Readopting minsize
-    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
-    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
-    sortir.minsize(h_spacer, v_spacer)
+    UIFit()
+    sortir.update()
 
 
 def zoomOne(event=None) -> None:
@@ -404,10 +409,8 @@ def zoomOne(event=None) -> None:
     # ↓ Reenabling +/- buttons
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
-    # ↓ Readopting minsize
-    h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
-    v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
-    sortir.minsize(h_spacer, v_spacer)
+    UIFit()
+    sortir.update()
 
 
 def zoomWheel(event) -> None:
@@ -787,9 +790,7 @@ sortir.bind_all('<Control-W>', DisMiss)
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
 # ↓ Readopting minsize
-h_spacer = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
-v_spacer = min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10)
-sortir.minsize(h_spacer, v_spacer)
+UIFit()
 # ↓ Setting maxsize to fit 90% of screen
 sortir.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
 sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
