@@ -60,13 +60,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 #               onSave() changes. New bugs are highly likely to arise,
 #               yet not found yet.
 # 3.26.20.8     Better Spinbox validation.
-# 3.28.6.8      UI have the potential to become standard.
+# 3.28.8.8      UI have the potential to become standard.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.28.6.8'  # Main version № match that of filter module
+__version__ = '3.28.8.8'  # Main version № match that of filter module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -145,7 +145,7 @@ def UIBusy() -> None:
 
 
 def UIFit() -> None:
-    """Readopting minsize."""
+    """Readopting 'sortir.minsize' to fit the screen."""
 
     sortir.update()
     fit_width = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
@@ -153,24 +153,44 @@ def UIFit() -> None:
     sortir.minsize(fit_width, fit_height)
 
 
-def ShowPreview(preview_name: PhotoImage, caption: str) -> None:
-    """Show preview_name PhotoImage with caption below."""
+def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
+    """Show 'preview_choice' PhotoImage, trying to fit 'zanyato' to screen."""
 
     global zoom_factor, preview
 
-    preview = preview_name
+    preview = preview_choice
 
     if zoom_factor > 0:
         preview = preview.zoom(zoom_factor + 1)
-        label_zoom['text'] = f'Zoom {zoom_factor + 1}:1'
+        scaled_width = X * (zoom_factor + 1)
+        scaled_height = Y * (zoom_factor + 1)
+        label_zoom['text'] = f'{caption} {zoom_factor + 1}:1'
     elif zoom_factor < 0:
         preview = preview.subsample(1 - zoom_factor)
-        label_zoom['text'] = f'Zoom 1:{1 - zoom_factor}'
+        scaled_width = X // (1 - zoom_factor)
+        scaled_height = Y // (1 - zoom_factor)
+        label_zoom['text'] = f'{caption} 1:{1 - zoom_factor}'
     else:
-        preview = preview_name
-        label_zoom['text'] = 'Zoom 1:1'
-
-    zanyato.config(text=caption, font=('helvetica', 8), image=preview, compound='top', padx=0, pady=0, justify='center', background=zanyato.master['background'], relief='flat', borderwidth=1, state='normal')
+        scaled_width = X
+        scaled_height = Y
+        label_zoom['text'] = f'{caption} 1:1'
+    zanyato.config(
+        image=preview,
+        # ↓ In this version "caption" will not be shown in "zanyato"
+        #   but rather sent to "label_zoom".
+        text=caption,
+        font=('helvetica', 8),
+        compound='none',
+        padx=0,
+        pady=0,
+        justify='center',
+        background=zanyato.master['background'],
+        relief='flat',
+        borderwidth=1,
+        state='normal',
+        width=min(scaled_width, 9 * sortir.winfo_screenwidth() // 10),
+        height=min(scaled_height, (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
+    )
 
 
 def GetSource(event=None) -> None:
@@ -213,10 +233,8 @@ def GetSource(event=None) -> None:
         raise ValueError('Extension not recognized')
     timing = time() - start
 
-    """ ┌────────────────────────────────────────────┐
-        │ Creating deep copy of source 3D list       │
-        │ to avoid accumulating repetitive filtering │
-        └────────────────────────────────────────────┘ """
+    # ↓ Creating deep copy of source 3D list
+    #   to avoid accumulating repetitive filtering.
     result_image = deepcopy(source_image)
 
     """ ┌───────────────┐
@@ -229,10 +247,8 @@ def GetSource(event=None) -> None:
     # ↓ Finally the show part
     ShowPreview(preview, 'Source')
 
-    """ ┌─────────────────────────────────────────────┐
-        │ Creating copy of source preview for further │
-        │ switch between source and result            │
-        └─────────────────────────────────────────────┘ """
+    # ↓ Creating copy of source preview for further
+    #   fast switch between source and result.
     preview_src = preview_filtered = preview
 
     # ↓ Attempt to zoom to fit. Singe zoomOut() must fit for a reasonable image size.
@@ -428,7 +444,7 @@ def SwitchView(event=None) -> None:
 
     global zoom_factor, view_src, preview
     view_src = not view_src
-    if view_src:
+    if view_src or is_saved:
         ShowPreview(preview_src, 'Source')
     else:
         ShowPreview(preview_filtered, 'Result')
@@ -589,12 +605,11 @@ def incWheel(event) -> None:
     ╚═══════════╝ """
 # ↓ Initializing
 sourcefilename = ''
-zoom_factor = 0
+zoom_factor = timing = 0
 view_src = True
 is_filtered = False
 product_name = 'Averager'
 operation = 'Awaiting orders'
-timing = 0
 
 sortir = Tk()
 sortir.iconphoto(True, PhotoImage(data=b''.join(('P6\n3 16\n255\n'.encode(encoding='ascii'), randbytes(3 * 16 * 3)))))

@@ -50,13 +50,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 # 1.23.1.1      Even more numerous GUI improvements, including spinbox control with mousewheel.
 # 1.26.8.8      Minimal debugging, some code restructure to simplify further editing.
 # 1.26.20.8     Better Spinbox validation.
-# 1.28.6.8      UI have the potential to become standard.
+# 1.28.8.8      UI in line with "Averager".
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.28.6.8'  # Main version № match that of export module
+__version__ = '1.28.8.8'  # Main version № match that of export module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -131,7 +131,7 @@ def UIBusy() -> None:
 
 
 def UIFit() -> None:
-    """Readopting minsize."""
+    """Readopting 'sortir.minsize' to fit the screen."""
 
     sortir.update()
     fit_width = min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10)
@@ -139,28 +139,44 @@ def UIFit() -> None:
     sortir.minsize(fit_width, fit_height)
 
 
-def ShowPreview(preview_name: PhotoImage, caption: str) -> None:
-    """Show preview_name PhotoImage with caption below."""
+def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
+    """Show 'preview_choice' PhotoImage, trying to fit 'zanyato' to screen."""
 
     global zoom_factor, preview
 
-    preview = preview_name
+    preview = preview_choice
 
     if zoom_factor > 0:
-        preview = preview.zoom(
-            zoom_factor + 1,
-        )
-        label_zoom['text'] = f'Zoom {zoom_factor + 1}:1'
+        preview = preview.zoom(zoom_factor + 1)
+        scaled_width = X * (zoom_factor + 1)
+        scaled_height = Y * (zoom_factor + 1)
+        label_zoom['text'] = f'{caption} {zoom_factor + 1}:1'
     elif zoom_factor < 0:
-        preview = preview.subsample(
-            1 - zoom_factor,
-        )
-        label_zoom['text'] = f'Zoom 1:{1 - zoom_factor}'
+        preview = preview.subsample(1 - zoom_factor)
+        scaled_width = X // (1 - zoom_factor)
+        scaled_height = Y // (1 - zoom_factor)
+        label_zoom['text'] = f'{caption} 1:{1 - zoom_factor}'
     else:
-        preview = preview_name
-        label_zoom['text'] = 'Zoom 1:1'
-
-    zanyato.config(text=caption, font=('helvetica', 8), image=preview, compound='top', padx=0, pady=0, justify='center', background=zanyato.master['background'], relief='flat', borderwidth=1, state='normal')
+        scaled_width = X
+        scaled_height = Y
+        label_zoom['text'] = f'{caption} 1:1'
+    zanyato.config(
+        image=preview,
+        # ↓ In this version "caption" will not be shown in "zanyato"
+        #   but rather sent to "label_zoom".
+        text=caption,
+        font=('helvetica', 8),
+        compound='none',
+        padx=0,
+        pady=0,
+        justify='center',
+        background=zanyato.master['background'],
+        relief='flat',
+        borderwidth=1,
+        state='normal',
+        width=min(scaled_width, 9 * sortir.winfo_screenwidth() // 10),
+        height=min(scaled_height, (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
+    )
 
 
 def GetSource(event=None) -> None:
@@ -194,10 +210,8 @@ def GetSource(event=None) -> None:
     else:
         raise ValueError('Extension not recognized')
 
-    """ ┌────────────────────────────────────────────┐
-        │ Creating deep copy of source 3D list       │
-        │ to avoid accumulating repetitive filtering │
-        └────────────────────────────────────────────┘ """
+    # ↓ Creating deep copy of source 3D list
+    #   to avoid accumulating repetitive filtering.
     source_image = deepcopy(result_image)
 
     """ ┌───────────────┐
@@ -210,10 +224,8 @@ def GetSource(event=None) -> None:
     # ↓ Finally the show part
     ShowPreview(preview, 'Source')
 
-    """ ┌─────────────────────────────────────────────┐
-        │ Creating copy of source preview for further │
-        │ switch between source and result            │
-        └─────────────────────────────────────────────┘ """
+    # ↓ Creating copy of source preview for further
+    #   fast switch between source and result.
     preview_src = preview_filtered = preview
 
     # ↓ binding on preview click
