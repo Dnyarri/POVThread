@@ -162,8 +162,6 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         label_zoom['text'] = f'{caption} 1:1'
     zanyato.config(
         image=preview,
-        # ↓ In this version "caption" will not be shown in "zanyato"
-        #   but rather sent to "label_zoom".
         text=caption,
         font=('helvetica', 8),
         compound='none',
@@ -188,7 +186,14 @@ def GetSource(event=None) -> None:
     global result_image  # deep copy of source_image to avoid cumulative filtering
 
     old_sourcefilename = sourcefilename  # Temporary saving info in case of "Open.." cancel
-    sourcefilename = askopenfilename(title='Open image file', filetypes=[('Supported formats', '.png .ppm .pgm .pbm .pnm'), ('Portable network graphics', '.png'), ('Portable any map', '.ppm .pgm .pbm .pnm')])
+    sourcefilename = askopenfilename(
+        title='Open image file',
+        filetypes=[
+            ('Supported formats', '.png .ppm .pgm .pbm .pnm'),
+            ('Portable network graphics', '.png'),
+            ('Portable any map', '.ppm .pgm .pbm .pnm'),
+        ],
+    )
     if sourcefilename == '':
         sourcefilename = old_sourcefilename
         return

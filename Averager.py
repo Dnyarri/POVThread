@@ -188,6 +188,8 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         relief='flat',
         borderwidth=1,
         state='normal',
+        # ↓ Fitting "zanyato" into screen. With image added,
+        #   Label width and height start working in pixels.
         width=min(scaled_width, 9 * sortir.winfo_screenwidth() // 10),
         height=min(scaled_height, (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
     )
@@ -206,7 +208,14 @@ def GetSource(event=None) -> None:
     # ↓ Temporary saving info in case of "Open.." cancel
     old_sourcefilename = sourcefilename
     # ↓ Opening "Open.." dialog
-    sourcefilename = askopenfilename(title='Open image file', filetypes=[('Supported formats', '.png .ppm .pgm .pbm .pnm'), ('Portable network graphics', '.png'), ('Portable any map', '.ppm .pgm .pbm .pnm')])
+    sourcefilename = askopenfilename(
+        title='Open image file',
+        filetypes=[
+            ('Supported formats', '.png .ppm .pgm .pbm .pnm'),
+            ('Portable network graphics', '.png'),
+            ('Portable any map', '.ppm .pgm .pbm .pnm'),
+        ],
+    )
     if sourcefilename == '':
         sourcefilename = old_sourcefilename
         return
