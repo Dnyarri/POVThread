@@ -66,7 +66,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.28.8.8'  # Main version № match that of filter module
+__version__ = '3.29.3.5'  # Main version № match that of filter module
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -162,17 +162,11 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
 
     if zoom_factor > 0:
         preview = preview.zoom(zoom_factor + 1)
-        scaled_width = X * (zoom_factor + 1)
-        scaled_height = Y * (zoom_factor + 1)
         label_zoom['text'] = f'{caption} {zoom_factor + 1}:1'
     elif zoom_factor < 0:
         preview = preview.subsample(1 - zoom_factor)
-        scaled_width = X // (1 - zoom_factor)
-        scaled_height = Y // (1 - zoom_factor)
         label_zoom['text'] = f'{caption} 1:{1 - zoom_factor}'
     else:
-        scaled_width = X
-        scaled_height = Y
         label_zoom['text'] = f'{caption} 1:1'
     zanyato.config(
         image=preview,
@@ -190,8 +184,8 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         state='normal',
         # ↓ Fitting "zanyato" into screen. With image added,
         #   Label width and height start working in pixels.
-        width=min(scaled_width, 9 * sortir.winfo_screenwidth() // 10),
-        height=min(scaled_height, (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
+        width=min(preview.width(), 9 * sortir.winfo_screenwidth() // 10),
+        height=min(preview.height(), (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
     )
 
 
