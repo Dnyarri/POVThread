@@ -61,12 +61,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 #               yet not found yet.
 # 3.26.20.8     Better Spinbox validation.
 # 3.28.8.8      UI have the potential to become standard.
+# 3.29.26.6     Introducing draggable canvas (somewhat jaggy).
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.29.3.5'  # Main version № match that of filter module
+__version__ = '3.29.26.6'  # 'Averager' 26 May 2026, 'avgrow' v. 3
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -75,7 +76,7 @@ from copy import deepcopy
 from pathlib import Path
 from random import randbytes  # Used for random icon only
 from time import ctime, time
-from tkinter import BooleanVar, Button, Checkbutton, Frame, IntVar, Label, Menu, Menubutton, PhotoImage, Spinbox, TclError, Tk
+from tkinter import BooleanVar, Button, Canvas, Checkbutton, Frame, IntVar, Label, Menu, Menubutton, PhotoImage, Spinbox, TclError, Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from tkinter.messagebox import showinfo
 
@@ -153,8 +154,23 @@ def UIFit() -> None:
     sortir.minsize(fit_width, fit_height)
 
 
+def canvasCoord(event):
+    """Marking 'canvas' click pont for further dragging."""
+    canvas.scan_mark(event.x, event.y)
+
+
+def canvasDrag(event):
+    """Dragging 'canvas' Canvas."""
+    canvas.scan_dragto(
+        event.x,
+        event.y,
+        gain=1,
+    )
+    canvas['cursor'] = 'fleur'
+
+
 def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
-    """Show 'preview_choice' PhotoImage, trying to fit 'zanyato' to screen."""
+    """Show 'preview_choice' PhotoImage, trying to fit 'canvas' to screen."""
 
     global zoom_factor, preview
 
@@ -168,24 +184,24 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         label_zoom['text'] = f'{caption} 1:{1 - zoom_factor}'
     else:
         label_zoom['text'] = f'{caption} 1:1'
+
+    # ↓ Sizes of preview to fit the screen
+    preview_width = min(preview.width(), 8 * sortir.winfo_screenwidth() // 10)
+    preview_height = min(preview.height(), (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height())
+
     zanyato.config(
         image=preview,
-        # ↓ In this version "caption" will not be shown in "zanyato"
-        #   but rather sent to "label_zoom".
-        text=caption,
-        font=('helvetica', 8),
-        compound='none',
-        padx=0,
-        pady=0,
-        justify='center',
-        background=zanyato.master['background'],
-        relief='flat',
-        borderwidth=1,
-        state='normal',
-        # ↓ Fitting "zanyato" into screen. With image added,
-        #   Label width and height start working in pixels.
-        width=min(preview.width(), 9 * sortir.winfo_screenwidth() // 10),
-        height=min(preview.height(), (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
+    )
+    canvas.config(
+        width=preview_width,
+        height=preview_height,  # Note that 'scrollregion' may be bigger than canvas!
+        scrollregion=(0, 0, preview.width(), preview.height()),
+        cursor='arrow',
+    )
+    canvas.itemconfig(  # configuring 'zanyato' size in a normal way doesn't work on canvas
+        zanyato_,
+        width=preview.width(),
+        height=preview.height(),
     )
 
 
@@ -259,7 +275,11 @@ def GetSource(event=None) -> None:
     if X + 16 > sortir.winfo_screenwidth() or Y + 152 > sortir.winfo_screenheight():
         zoomOut()
 
-    # ↓ binding on preview click
+    # ↓ Binding preview mouse drag
+    zanyato.bind('<Motion>', canvasCoord)
+    zanyato.bind('<B1-Motion>', canvasDrag)
+    zanyato.bind('<ButtonRelease-1>', lambda event: canvas.config(cursor='arrow'))  # cursor back after drag
+    # ↓ Binding preview click
     zanyato.bind('<Control-Button-1>', zoomIn)  # Ctrl + left click
     zanyato.bind('<Double-Control-Button-1>', zoomIn)  # Ctrl + left click too fast
     zanyato.bind('<Control-+>', zoomIn)
@@ -269,15 +289,15 @@ def GetSource(event=None) -> None:
     zanyato.bind('<Control-minus>', zoomOut)
     zanyato.bind('<Control-Key-1>', zoomOne)
     zanyato.bind('<Control-Alt-Key-0>', zoomOne)
-    # ↓ binding global
+    # ↓ Binding global
     sortir.bind_all('<Return>', RunFilter)
     sortir.bind_all('<MouseWheel>', zoomWheel)  # Wheel scroll
     sortir.bind_all('<Control-i>', ShowInfo)
     menu02.entryconfig('Image Info...', state='normal')
-    # ↓ enabling Save as...
+    # ↓ Enabling 'Save as...'
     menu02.entryconfig('Save as...', state='normal')
     sortir.bind_all('<Control-Shift-S>', SaveAs)
-    # ↓ enabling zoom buttons
+    # ↓ Enabling zoom buttons
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
     # ↓ Adding filename, mode and status to window title a-la Photoshop
@@ -642,14 +662,11 @@ info_busy = {'txt': 'BUSY, PLEASE WAIT', 'fg': 'red', 'bg': 'yellow'}
 info_string = Label(sortir, text=info_normal['txt'], font=('courier', 7), foreground=info_normal['fg'], background=info_normal['bg'], relief='groove')
 info_string.pack(side='bottom', padx=0, pady=(2, 0), fill='both')
 
-frame_top = Frame(sortir, borderwidth=2, relief='groove')
-frame_top.pack(side='top', anchor='w', pady=(0, 2))
-frame_preview = Frame(sortir, borderwidth=2, relief='groove')
-frame_preview.pack(side='top', anchor='center', expand=True)
-
 """ ┌──────────────────────┐
     │ Top frame (controls) │
     └─────────────────────-┘ """
+frame_top = Frame(sortir, borderwidth=2, relief='groove')
+frame_top.pack(side='top', anchor='w', pady=(0, 2))
 
 # ↓ File menu
 butt_file = Menubutton(
@@ -726,12 +743,32 @@ spin02.grid(row=0, column=5)
 
 # ↓ "Wrap around" control
 ini_wraparound = BooleanVar(value=False)
-check01 = Checkbutton(frame_top, text='Wrap around', font=('helvetica', 9), variable=ini_wraparound, onvalue=True, offvalue=False, state='disabled', activeforeground=butt['activeforeground'], activebackground=butt['activebackground'])
+check01 = Checkbutton(
+    frame_top,
+    text='Wrap around',
+    font=('helvetica', 9),
+    variable=ini_wraparound,
+    onvalue=True,
+    offvalue=False,
+    state='disabled',
+    activeforeground=butt['activeforeground'],
+    activebackground=butt['activebackground'],
+)
 check01.grid(row=1, column=1, sticky='ws')
 
 # ↓ "Keep alpha" control
 ini_keep_alpha = BooleanVar(value=False)
-check02 = Checkbutton(frame_top, text='Keep alpha', font=('helvetica', 9), variable=ini_keep_alpha, onvalue=True, offvalue=False, state='disabled', activeforeground=butt['activeforeground'], activebackground=butt['activebackground'])
+check02 = Checkbutton(
+    frame_top,
+    text='Keep alpha',
+    font=('helvetica', 9),
+    variable=ini_keep_alpha,
+    onvalue=True,
+    offvalue=False,
+    state='disabled',
+    activeforeground=butt['activeforeground'],
+    activebackground=butt['activebackground'],
+)
 check02.grid(row=1, column=3, columnspan=3, sticky='ws')
 
 # ↓ Filter start
@@ -755,18 +792,45 @@ butt_filter.grid(row=0, column=6, rowspan=2, sticky='nsew', padx=(10, 0), pady=0
 """ ┌──────────────────────────────┐
     │ Center frame (image preview) │
     └─────────────────────────────-┘ """
-zanyato = Label(
+frame_preview = Frame(sortir, borderwidth=2, relief='groove')
+frame_preview.pack(side='top', anchor='center', expand=True)
+
+canvas = Canvas(
     frame_preview,
-    text='Preview area.\n  Double click to open image,\n  Right click or Alt+F for a menu.\nWith image opened,\n  Ctrl+Click to zoom in,\n  Alt+Click to zoom out,\n  Enter to filter.\nWhen filtered, click or Space bar\nto switch source/result.',
+    borderwidth=1,  # canvas have two borders, in general combination
+    highlightthickness=1,  # of both gives contrast with any image
+    # background='red',  # internal border
+    # highlightbackground='green',  # external border
+    # highlightcolor='yellow',  # external border with opened image
+)
+canvas.pack()
+
+zanyato = Label(
+    canvas,
+    text='Preview area.\n  Double click to open image,\n  Right click or Alt+F for a menu.\nWith image opened,\n  Ctrl+Click to zoom in,\n  Alt+Click to zoom out,\n  Click+drag to drag preview,\n  Enter to filter.\nWhen filtered, click or Space bar\nto switch source/result.',
     font=('helvetica', 12),
     justify='left',
-    borderwidth=2,
     padx=24,
     pady=24,
+    borderwidth=2,
     background='grey90',
     relief='groove',
 )
 zanyato.pack(side='top')
+
+zanyato_ = canvas.create_window(
+    0,
+    0,
+    window=zanyato,
+    width=zanyato.winfo_reqwidth(),
+    height=zanyato.winfo_reqheight(),
+    anchor='nw',
+)
+canvas.config(
+    width=zanyato.winfo_reqwidth(),
+    height=zanyato.winfo_reqheight(),
+    scrollregion=(0, 0, zanyato.winfo_reqwidth(), zanyato.winfo_reqheight()),
+)
 
 frame_zoom = Frame(frame_preview, borderwidth=2, relief='groove')
 frame_zoom.pack(side='bottom')
@@ -804,7 +868,7 @@ sortir.bind_all('<Control-Q>', DisMiss)
 sortir.bind_all('<Control-w>', DisMiss)
 sortir.bind_all('<Control-W>', DisMiss)
 
-# ↓ Center window horizontally, +100 vertically
+# ↓ Center window horizontally, +64 vertically
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
 # ↓ Readopting minsize

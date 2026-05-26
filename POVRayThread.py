@@ -50,13 +50,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 # 1.23.1.1      Even more numerous GUI improvements, including spinbox control with mousewheel.
 # 1.26.8.8      Minimal debugging, some code restructure to simplify further editing.
 # 1.26.20.8     Better Spinbox validation.
-# 1.28.8.8      UI in line with "Averager".
+# 1.29.26.6     Introducing draggable canvas to keep UI in line with "Averager".
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.29.3.5'  # Main version № match that of export module
+__version__ = '1.29.26.6'  # 'POV-Ray Thread' 26 May 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -65,7 +65,7 @@ from copy import deepcopy
 from pathlib import Path
 from random import randbytes  # Used for random icon only
 from time import ctime  # Used to show file info only
-from tkinter import Button, Frame, IntVar, Label, Menu, Menubutton, PhotoImage, Spinbox, TclError, Tk
+from tkinter import Button, Canvas, Frame, IntVar, Label, Menu, Menubutton, PhotoImage, Spinbox, TclError, Tk
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from tkinter.messagebox import showinfo
 
@@ -139,8 +139,23 @@ def UIFit() -> None:
     sortir.minsize(fit_width, fit_height)
 
 
+def canvasCoord(event):
+    """Marking 'canvas' click pont for further dragging."""
+    canvas.scan_mark(event.x, event.y)
+
+
+def canvasDrag(event):
+    """Dragging 'canvas' Canvas."""
+    canvas.scan_dragto(
+        event.x,
+        event.y,
+        gain=1,
+    )
+    canvas['cursor'] = 'fleur'
+
+
 def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
-    """Show 'preview_choice' PhotoImage, trying to fit 'zanyato' to screen."""
+    """Show 'preview_choice' PhotoImage, trying to fit 'canvas' to screen."""
 
     global zoom_factor, preview
 
@@ -154,20 +169,24 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         label_zoom['text'] = f'{caption} 1:{1 - zoom_factor}'
     else:
         label_zoom['text'] = f'{caption} 1:1'
+
+    # ↓ Sizes of preview to fit the screen
+    preview_width = min(preview.width(), 8 * sortir.winfo_screenwidth() // 10)
+    preview_height = min(preview.height(), (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height())
+
     zanyato.config(
         image=preview,
-        text=caption,
-        font=('helvetica', 8),
-        compound='none',
-        padx=0,
-        pady=0,
-        justify='center',
-        background=zanyato.master['background'],
-        relief='flat',
-        borderwidth=1,
-        state='normal',
-        width=min(preview.width(), 9 * sortir.winfo_screenwidth() // 10),
-        height=min(preview.height(), (8 * sortir.winfo_screenheight() // 10) - frame_top.winfo_height() - info_string.winfo_height() - frame_zoom.winfo_height()),
+    )
+    canvas.config(
+        width=preview_width,
+        height=preview_height,  # Note that 'scrollregion' may be bigger than canvas!
+        scrollregion=(0, 0, preview.width(), preview.height()),
+        cursor='arrow',
+    )
+    canvas.itemconfig(  # configuring 'zanyato' size in a normal way doesn't work on canvas
+        zanyato_,
+        width=preview.width(),
+        height=preview.height(),
     )
 
 
@@ -200,18 +219,18 @@ def GetSource(event=None) -> None:
 
     if Path(sourcefilename).suffix.lower() == '.png':
         # ↓ Reading PNG image as list
-        X, Y, Z, maxcolors, result_image, info = png2list(sourcefilename)
+        X, Y, Z, maxcolors, source_image, info = png2list(sourcefilename)
 
     elif Path(sourcefilename).suffix.lower() in ('.ppm', '.pgm', '.pbm', '.pnm'):
         # ↓ Reading PNM image as list
-        X, Y, Z, maxcolors, result_image = pnm2list(sourcefilename)
+        X, Y, Z, maxcolors, source_image = pnm2list(sourcefilename)
 
     else:
         raise ValueError('Extension not recognized')
 
     # ↓ Creating deep copy of source 3D list
     #   to avoid accumulating repetitive filtering.
-    source_image = deepcopy(result_image)
+    result_image = deepcopy(source_image)
 
     """ ┌───────────────┐
         │ Viewing image │
@@ -226,8 +245,16 @@ def GetSource(event=None) -> None:
     # ↓ Creating copy of source preview for further
     #   fast switch between source and result.
     preview_src = preview_filtered = preview
+    # ↓ Attempt to zoom to fit. Singe zoomOut() must fit for a reasonable image size.
+    #   GUI X extra = 8 px, GUI Y extra = 150 px
+    if X + 16 > sortir.winfo_screenwidth() or Y + 152 > sortir.winfo_screenheight():
+        zoomOut()
 
-    # ↓ binding on preview click
+    # ↓ Binding preview mouse drag
+    zanyato.bind('<Motion>', canvasCoord)
+    zanyato.bind('<B1-Motion>', canvasDrag)
+    zanyato.bind('<ButtonRelease-1>', lambda event: canvas.config(cursor='arrow'))  # cursor back after drag
+    # ↓ Binding preview click
     zanyato.bind('<Control-Button-1>', zoomIn)  # Ctrl + left click
     zanyato.bind('<Double-Control-Button-1>', zoomIn)  # Ctrl + left click too fast
     zanyato.bind('<Control-+>', zoomIn)
@@ -237,20 +264,18 @@ def GetSource(event=None) -> None:
     zanyato.bind('<Control-minus>', zoomOut)
     zanyato.bind('<Control-Key-1>', zoomOne)
     zanyato.bind('<Control-Alt-Key-0>', zoomOne)
-    # ↓ binding global
+    # ↓ Binding global
     sortir.bind_all('<Return>', RunFilter)
     sortir.bind_all('<MouseWheel>', zoomWheel)  # Wheel scroll
     sortir.bind_all('<Control-i>', ShowInfo)
     menu02.entryconfig('Image Info...', state='normal')
-    # ↓ enabling Save as...
+    # ↓ Enabling 'Export...'
     menu02.entryconfig('Export Linen...', state='normal')
     menu02.entryconfig('Export Stitch...', state='normal')
 
-    # ↓ enabling zoom buttons
+    # ↓ Enabling zoom buttons
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
-    # ↓ updating zoom label display
-    label_zoom['text'] = 'Zoom 1:1'
     # ↓ Adding filename to window title a-la Photoshop
     sortir.title(f'{product_name}: {Path(sourcefilename).name}')
     info_normal = {'txt': f'{Path(sourcefilename).name} X={X} Y={Y} Z={Z} maxcolors={maxcolors}', 'fg': 'grey', 'bg': 'grey90'}
@@ -519,16 +544,13 @@ info_busy = {'txt': 'BUSY, PLEASE WAIT', 'fg': 'red', 'bg': 'yellow'}
 info_string = Label(sortir, text=info_normal['txt'], font=('courier', 7), foreground=info_normal['fg'], background=info_normal['bg'], relief='groove')
 info_string.pack(side='bottom', padx=0, pady=(2, 0), fill='both')
 
-frame_top = Frame(sortir, borderwidth=2, relief='groove')
-frame_top.pack(side='top', anchor='w', pady=(0, 2))
-frame_preview = Frame(sortir, borderwidth=2, relief='groove')
-frame_preview.pack(side='top', anchor='center', expand=True)
-
 """ ┌──────────────────────┐
     │ Top frame (controls) │
     └─────────────────────-┘ """
+frame_top = Frame(sortir, borderwidth=2, relief='groove')
+frame_top.pack(side='top', anchor='w', pady=(0, 2))
 
-# ↓ File and menu
+# ↓ File menu
 butt_file = Menubutton(
     frame_top,
     text='File...',
@@ -622,19 +644,47 @@ butt_filter.pack(side='left', padx=0, pady=0, fill='both')
 """ ┌──────────────────────────────┐
     │ Center frame (image preview) │
     └─────────────────────────────-┘ """
-zanyato = Label(
+frame_preview = Frame(sortir, borderwidth=2, relief='groove')
+frame_preview.pack(side='top', anchor='center', expand=True)
+
+canvas = Canvas(
     frame_preview,
-    text='Preview area.\n  Double click to open image,\n  Right click or Alt+F for a menu.\nWith image opened,\n  Ctrl+Click to zoom in,\n  Alt+Click to zoom out,\n  Enter to filter.\nWhen filtered, click or Space bar\nto switch source/result.',
+    borderwidth=1,  # canvas have two borders, in general combination
+    highlightthickness=1,  # of both gives contrast with any image
+    # background='red',  # internal border
+    # highlightbackground='green',  # external border
+    # highlightcolor='yellow',  # external border with opened image
+)
+canvas.pack()
+
+zanyato = Label(
+    canvas,
+    text='Preview area.\n  Double click to open image,\n  Right click or Alt+F for a menu.\nWith image opened,\n  Ctrl+Click to zoom in,\n  Alt+Click to zoom out,\n  Click+drag to drag preview,\n  Enter to filter.\nWhen filtered, click or Space bar\nto switch source/result.',
     font=('helvetica', 12),
     justify='left',
-    borderwidth=2,
     padx=24,
     pady=24,
+    borderwidth=2,
     background='grey90',
     relief='groove',
 )
+zanyato.pack(side='top')
 
-frame_zoom = Frame(frame_preview, width=300, borderwidth=2, relief='groove')
+zanyato_ = canvas.create_window(
+    0,
+    0,
+    window=zanyato,
+    width=zanyato.winfo_reqwidth(),
+    height=zanyato.winfo_reqheight(),
+    anchor='nw',
+)
+canvas.config(
+    width=zanyato.winfo_reqwidth(),
+    height=zanyato.winfo_reqheight(),
+    scrollregion=(0, 0, zanyato.winfo_reqwidth(), zanyato.winfo_reqheight()),
+)
+
+frame_zoom = Frame(frame_preview, borderwidth=2, relief='groove')
 frame_zoom.pack(side='bottom')
 
 butt_plus = Button(frame_zoom, text='+', font=('courier', 8), width=2, cursor='arrow', state='disabled', borderwidth=1, command=zoomIn)
@@ -657,16 +707,16 @@ butt_file.bind('<Leave>', lambda event=None: butt_file.config(relief=butt['relie
 # ↓ Double-click image area to "Open..."
 zanyato.bind('<Double-Button-1>', GetSource)
 frame_preview.bind('<Double-Button-1>', GetSource)
-zanyato.pack(side='top')
 # ↓ Whole sortir binding menu, "Open..." and "Exit"
 sortir.bind_all('<Button-3>', ShowMenu)
 sortir.bind_all('<Alt-f>', ShowMenu)
+sortir.bind_all('<Control-o>', GetSource)
 sortir.bind_all('<Control-q>', DisMiss)
 sortir.bind_all('<Control-Q>', DisMiss)
 sortir.bind_all('<Control-w>', DisMiss)
 sortir.bind_all('<Control-W>', DisMiss)
 
-# ↓ Center window horizontally, +100 vertically
+# ↓ Center window horizontally, +64 vertically
 sortir.update()
 # print(sortir.winfo_width(), sortir.winfo_height())
 # ↓ Readopting minsize
