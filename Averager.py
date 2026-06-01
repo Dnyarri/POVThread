@@ -67,7 +67,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.29.26.6'  # 'Averager' 26 May 2026, 'avgrow' v. 3
+__version__ = '3.30.1.5'  # 'Averager' 1 June 2026, 'avgrow' v. 3
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -203,6 +203,17 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         width=preview.width(),
         height=preview.height(),
     )
+
+
+def SwitchView(event=None) -> None:
+    """Switch preview between preview_src and preview_filtered."""
+
+    global zoom_factor, view_src, preview
+    view_src = not view_src
+    if view_src or is_saved:
+        ShowPreview(preview_src, 'Source')
+    else:
+        ShowPreview(preview_filtered, 'Result')
 
 
 def GetSource(event=None) -> None:
@@ -460,17 +471,6 @@ def zoomWheel(event) -> None:
             zoomOut()
         if event.delta > 0:
             zoomIn()
-
-
-def SwitchView(event=None) -> None:
-    """Switch preview between preview_src and preview_filtered."""
-
-    global zoom_factor, view_src, preview
-    view_src = not view_src
-    if view_src or is_saved:
-        ShowPreview(preview_src, 'Source')
-    else:
-        ShowPreview(preview_filtered, 'Result')
 
 
 def onSave() -> None:
