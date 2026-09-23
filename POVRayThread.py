@@ -57,7 +57,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.33.23.9'  # 'POV-Ray Thread' 23 Sep 2026, export modules v. 1
+__version__ = '1.33.23.23'  # 'POV-Ray Thread' 23 Sep 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -71,7 +71,7 @@ from tkinter.filedialog import askopenfilename, asksaveasfilename
 from tkinter.messagebox import showinfo
 
 from export import linen, stitch
-from filter.avgrow import filter
+from filter import filter
 from pypng import png2list
 from pypnm import list2bin, pnm2list
 

@@ -86,12 +86,13 @@ POV-Ray Thread source: main `@Github`_ and mirror `@Gitflic`_
 # 3.22.18.8     Evasive bug discovered and presumably exterminated.
 # 3.26.6.18     Major minor refurbishment: docstring etc. etc.
 # 3.26.20.8     Surprisingly, there is a room for optimizing "create_image"!
+# 3.33.23.23    Converting some lists to tuples gives ca. 7% more speed.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.32.8.24'
+__version__ = '3.33.23.23'  # 23 Sep 2026
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -99,12 +100,31 @@ __status__ = 'Production'
 from operator import add, floordiv  # Operator in `map` seem to work ca. 7% faster than lambda.
 
 
-def create_image(X: int, Y: int, Z: int) -> list[list[list[int]]]:
-    """Create 3D nested list of X * Y * Z size, filled with zeroes."""
+def create_image(X: int, Y: int, Z: int, cheat: bool = True) -> list[list[list[int]]] | list[list[tuple[int]]]:
+    """Create 3D nested list of X * Y * Z size, filled with zeroes.
+    Addressing is ``result[y][x][z]``.
 
-    return [[[0] * Z] * X for y in range(Y)]
-    # ↑ Works ca. 80 times faster than fair 3D-list comprehension.
-    #   NOTE: Can not be replaced with "[[[0] * Z] * X] * Y"!
+    :param int X: image width, pixels;
+    :param int Y: image height, pixels;
+    :param int Z: number of image channels;
+    :param bool cheat: whether to use some in-row links
+        instead of fair 3D-list to speed image creation up.
+        Links ought to be replaced with pixels when filtering.
+    :return: empty image as 3D nested list of X * Y * Z size, filled with zeroes.
+        Addressing is ``list[y][x][z]``.
+    :rtype: list[list[list[int]]] or list[list[tuple[int]]].
+
+    """
+
+    if cheat:
+        return [[(0,) * Z] * X for y in range(Y)]
+    # ↑ Works ca. 80 times faster than fair 3D-list comprehension,
+    #   but creates in-row and in-pixel links, harmless for this filter.
+    #   NOTE: Can NOT be replaced with "[[[0] * Z] * X] * Y",
+    #         since the latter creates cross-row links as well.
+
+    return [[[z for z in range(Z)] for x in range(X)] for y in range(Y)]
+    # ↑ Fair 3D-list comprehension, no cheating, no cross-links.
 
 
 def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: int, wrap_around: bool = False, keep_alpha: bool = False) -> list[list[list[int]]]:
@@ -132,43 +152,41 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
 
     # ↓ Determining image sizes.
     Y, X, Z = (len(source_image), len(source_image[0]), len(source_image[0][0]))
-    Z_COLOR = Z if Z == 1 or Z == 3 else min(Z - 1, 3)  # Number of color channels, alpha excluded.
-
-    # ↓ Creating empty intermediate image.
-    intermediate_image = create_image(X, Y, Z)
+    # ↓ Number of color channels, alpha excluded.
+    Z_COLOR = Z if Z == 1 or Z == 3 else min(Z - 1, 3)
 
     """ ╭──────────────────────────────────────────╮
         │ Coordinates for reading and writing.     │
         │ NOTE: with 0 overhead filter never goes  │
         │ out of image list index, so separate src │
-        │ for repeat edge is unnecessary, it's     │
+        │ for repeat edge is unnecessary, and is   │
         │ kept here just for reference and reuse.  │
         ╰──────────────────────────────────────────╯ """
 
     def _cx_repeat(x: int) -> int:
-        """x for repeat edge"""
+        """``x`` coordinate for repeat edge processing"""
         return min((X - 1), max(0, int(x)))  # x repeat edge
 
     def _cx_wrap(x: int) -> int:
-        """x for wrap around"""
+        """``x`` coordinate for wrap around processing"""
         return int(x) % X  # x wrap around
 
     def _cy_repeat(y: int) -> int:
-        """y for repeat edge"""
+        """``y`` coordinate for repeat edge processing"""
         return min((Y - 1), max(0, int(y)))  # y repeat edge
 
     def _cy_wrap(y: int) -> int:
-        """y for wrap around"""
+        """``y`` coordinate for wrap around processing"""
         return int(y) % Y  # y wrap around
 
     # ↓ Setting wrap around as default, with overhead = 0 it works like "as is".
     cx = _cx_wrap
     cy = _cy_wrap
 
-    # ↓ Threshold criteria may never be met, yet loop must be stopped somewhere.
-    #   Therefore some maximal run length overhead defined be must.
-    #   Small values sometimes fail (i.e. filter prematurely react
-    #   on short smooth sequences), while values bigger than image size make no sense.
+    """ Threshold criteria may never be met, yet loop must be stopped somewhere.
+        Therefore some maximal run length overhead defined be must.
+        Small values sometimes fail (i.e. filter prematurely react
+        on short smooth sequences), while values bigger than image size make no sense. """
     if wrap_around:
         x_overhead, y_overhead = X, Y
     else:
@@ -177,9 +195,12 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
     """ ╭─────────────────╮
         │ Horizontal pass │
         ╰─────────────────╯ """
+    # ↓ Creating empty intermediate image.
+    intermediate_image = create_image(X, Y, Z, cheat=True)
 
     def _criterion_x(channel: int, channel_sum: int) -> bool:
-        """Threshold criterion for x, single channel."""
+        """Threshold criterion for horizontal pass, single channel.
+        Uses outer scope ``number`` and ``threshold_x``."""
         return abs(channel - (channel_sum / number)) > threshold_x
         # ↑ Defined function seem to work ca. 5% faster than lambda.
         #   Uses outer scope `number` and `threshold_x`.
@@ -191,20 +212,21 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
         pixels_sum = pixel  # Sum of pixels being read during averaging loop.
         for x in range(0, X + x_overhead, 1):
             number += 1
-            # ↓ Core part of averaging - adding up.
-            #   It is important to sum pixels read BEFORE current pixel
-            #   so when checking threshold and writing an averaged line
-            #   edge pixel is not included into average.
-            pixels_sum = [*map(add, pixel, pixels_sum)]
+            """ Core part of averaging - adding up.
+            It is important to sum pixels read BEFORE current pixel
+            so when checking threshold and writing an averaged line
+            edge pixel is not included into average. """
+            pixels_sum = (*map(add, pixel, pixels_sum),)
             pixel = source_image[cy(y)][cx(x)]
             # ↓ Checking criterion. Alpha excluded from criterion check.
             if any(map(_criterion_x, pixel[:Z_COLOR], pixels_sum[:Z_COLOR])):
-                # ↓ Dividing sum by pixel number for inner row loop before potential criterion hit.
-                #   Alpha included in calculation but not in check.
-                average_pixel = [*map(floordiv, pixels_sum, (number,) * Z)]  # Inner loop result.
+                """ Dividing sum by pixel number for inner row loop
+                    BEFORE potential criterion hit.
+                NOTE: Alpha included in calculation but NOT in check. """
+                average_pixel = (*map(floordiv, pixels_sum, (number,) * Z),)  # Inner loop result.
                 for i in range(x_start, x - 1, 1):
                     intermediate_image[y][cx(i)] = average_pixel
-                # ↓ Redefining start of new inner loop until threshold.
+                # ↓ Redefining starting values of new inner loop until threshold.
                 x_start = x
                 number = 1
                 pixels_sum = pixel
@@ -213,12 +235,12 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
     """ ╭───────────────╮
         │ Vertical pass │
         ╰───────────────╯ """
-
     # ↓ Creating empty final image.
-    result_image = create_image(X, Y, Z)
+    result_image = create_image(X, Y, Z, cheat=True)
 
     def _criterion_y(channel: int, channel_sum: int) -> bool:
-        """Threshold criterion for y, single channel"""
+        """Threshold criterion for vertical pass, single channel.
+        Uses outer scope ``number`` and ``threshold_y``."""
         return abs(channel - (channel_sum / number)) > threshold_y
 
     for x in range(0, X, 1):
@@ -228,10 +250,10 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
         pixels_sum = pixel
         for y in range(0, Y + y_overhead, 1):
             number += 1
-            pixels_sum = [*map(add, pixel, pixels_sum)]
+            pixels_sum = (*map(add, pixel, pixels_sum),)
             pixel = intermediate_image[cy(y)][cx(x)]
             if any(map(_criterion_y, pixel[:Z_COLOR], pixels_sum[:Z_COLOR])):
-                average_pixel = [*map(floordiv, pixels_sum, (number,) * Z)]
+                average_pixel = (*map(floordiv, pixels_sum, (number,) * Z),)
                 for i in range(y_start, y - 1, 1):
                     result_image[cy(i)][x] = average_pixel
                 y_start = y
@@ -246,8 +268,13 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
         return result_image
     else:
         if keep_alpha:
-            # ↓ Unpacking result_image pixels, overwriting alpha, and packing back.
-            resultimage_plus_alpha = [[[*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]] for x in range(X)] for y in range(Y)]
+            """ Unpacking result_image pixels, overwriting alpha, and packing back. """
+            resultimage_plus_alpha = [[(*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)] for y in range(Y)]
+
+            """ Generator/tuple alternative below. Works stably faster than list above
+                by max. ca. 0.002%, so it's here just for illustration. """
+            # resultimage_plus_alpha = tuple((tuple(((*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)),)for y in range(Y)),)
+
             return resultimage_plus_alpha
         else:
             return result_image

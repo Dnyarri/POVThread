@@ -70,7 +70,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.33.23.9'  # 'Averager' 23 Sep 2026, 'avgrow' v. 3
+__version__ = '3.33.23.23'  # 'Averager' 23 Sep 2026, 'avgrow' v. 3
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -83,7 +83,7 @@ from tkinter import BooleanVar, Button, Canvas, Checkbutton, Frame, IntVar, Labe
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from tkinter.messagebox import showinfo  # Used for "Image Info" and "Help"
 
-from filter.avgrow import filter
+from filter import filter
 from pypng import list2png, png2list
 from pypnm import list2bin, list2pnm, pnm2list
 

@@ -5,7 +5,7 @@ Usage
 
 ::
 
-    from filter.avgrow import filter
+    from filter import filter
     filtered_image = filter(source_image, threshold_x, threshold_y, wraparound, keep_alpha)
 
 where:
@@ -34,13 +34,31 @@ where:
     This potential problem is completely out of responsibility scope
     of current filter developer.
 
+----
+Main site: `The Toad's Slimy Mudhole`_
+
+.. _The Toad's Slimy Mudhole: https://dnyarri.github.io
+
+`POV-Ray Thread`_ previews and description
+
+.. _POV-Ray Thread: https://dnyarri.github.io/povthread.html
+
+POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
+
+.. _@Github: https://github.com/Dnyarri/POVthread
+
+.. _@Gitflic: https://gitflic.ru/project/dnyarri/povthread
+
 """
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.32.8.24'
+__version__ = '3.33.23.23'  # 23 Sep 2026
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
+__all__ = ['filter']
+
+from .avgrow import filter
