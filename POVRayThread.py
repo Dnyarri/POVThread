@@ -57,7 +57,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.33.1.7'  # 'POV-Ray Thread' 1 Sep 2026, export modules v. 1
+__version__ = '1.33.23.9'  # 'POV-Ray Thread' 23 Sep 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -789,8 +789,10 @@ frame_preview.bind('<Double-Button-1>', GetSource)
 # ↓ Whole sortir binding menu, "Open..." and "Exit"
 sortir.bind_all('<Button-3>', ShowMenu)
 sortir.bind_all('<Alt-f>', ShowMenu)
+sortir.bind_all('<Alt-F>', ShowMenu)
 sortir.bind_all('<F1>', ShowHelp)
 sortir.bind_all('<Control-o>', GetSource)
+sortir.bind_all('<Control-O>', GetSource)
 sortir.bind_all('<Control-q>', DisMiss)
 sortir.bind_all('<Control-Q>', DisMiss)
 sortir.bind_all('<Control-w>', DisMiss)

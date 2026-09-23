@@ -70,7 +70,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.33.1.7'  # 'Averager' 1 Sep 2026, 'avgrow' v. 3
+__version__ = '3.33.23.9'  # 'Averager' 23 Sep 2026, 'avgrow' v. 3
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -983,8 +983,10 @@ frame_preview.bind('<Double-Button-1>', GetSource)
 # ↓ Whole sortir binding menu, "Open..." and "Exit"
 sortir.bind_all('<Button-3>', ShowMenu)
 sortir.bind_all('<Alt-f>', ShowMenu)
+sortir.bind_all('<Alt-F>', ShowMenu)
 sortir.bind_all('<F1>', ShowHelp)
 sortir.bind_all('<Control-o>', GetSource)
+sortir.bind_all('<Control-O>', GetSource)
 sortir.bind_all('<Control-q>', DisMiss)
 sortir.bind_all('<Control-Q>', DisMiss)
 sortir.bind_all('<Control-w>', DisMiss)
