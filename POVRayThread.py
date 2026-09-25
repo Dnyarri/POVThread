@@ -57,7 +57,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.33.23.23'  # 'POV-Ray Thread' 23 Sep 2026, export modules v. 1
+__version__ = '1.33.25.13'  # 'POV-Ray Thread' 25 Sep 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -332,7 +332,7 @@ def GetSource(event=None) -> None:
     spin_y.bind('<MouseWheel>', incWheel)
     UINormal()
     UIFit()
-    sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width()) // 2}+64')
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+64')
     zanyato.focus_set()
 
 
