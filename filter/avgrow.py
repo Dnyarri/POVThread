@@ -268,13 +268,8 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
         return result_image
     else:
         if keep_alpha:
-            """ Unpacking result_image pixels, overwriting alpha, and packing back. """
+            # ↓ Unpacking result_image pixels, overwriting alpha, and packing back.
             resultimage_plus_alpha = [[(*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)] for y in range(Y)]
-
-            """ Generator/tuple alternative below. Works stably faster than list above
-                by max. ca. 0.002%, so it's here just for illustration. """
-            # resultimage_plus_alpha = tuple((tuple(((*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)),)for y in range(Y)),)
-
             return resultimage_plus_alpha
         else:
             return result_image
