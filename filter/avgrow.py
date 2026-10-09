@@ -6,6 +6,11 @@
 Pure Python image filtering module for `POV-Ray Thread`_ and
 `Averager`_ applications.
 
+.. note:: This version is supposed to be used with three-threaded Python.
+    It works with GIL-enabled Python ca. 2% slower as compared to
+    "classic" filter ver. 3.33.23.23; with no-GIL Python, however,
+    speed is multiplied proportional to number of physical CPUs.
+
 Initial purpose was transforming row sequences of closely colored pixels
 into a sequence of the same solid color to simulate single thread in canvas;
 however filter may work with columns as well,
@@ -87,21 +92,23 @@ POV-Ray Thread source: main `@Github`_ and mirror `@Gitflic`_
 # 3.26.6.18     Major minor refurbishment: docstring etc. etc.
 # 3.26.20.8     Surprisingly, there is a room for optimizing "create_image"!
 # 3.33.23.23    Converting some lists to tuples gives ca. 7% more speed.
+# 4.34.10.1     Major change: loops to ThreadPoolExecutors.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '3.33.23.23'  # 23 Sep 2026
+__version__ = '4.34.10.1'  # 10 Oct 2026
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
 
+from concurrent.futures import ThreadPoolExecutor
 from operator import add, floordiv  # Operator in `map` seem to work ca. 7% faster than lambda.
 
 
 def create_image(X: int, Y: int, Z: int, cheat: bool = True) -> list[list[list[int]]] | list[list[tuple[int]]]:
-    """Create 3D nested list of X * Y * Z size, filled with zeroes.
+    """Create 3D nested list of ``X`` × ``Y`` × ``Z`` size, filled with zeroes.
     Addressing is ``result[y][x][z]``.
 
     :param int X: image width, pixels;
@@ -110,7 +117,7 @@ def create_image(X: int, Y: int, Z: int, cheat: bool = True) -> list[list[list[i
     :param bool cheat: whether to use some in-row links
         instead of fair 3D-list to speed image creation up.
         Links ought to be replaced with pixels when filtering.
-    :return: empty image as 3D nested list of X * Y * Z size, filled with zeroes.
+    :return: dummy image as 3D nested list of ``X`` × ``Y`` × ``Z`` size.
         Addressing is ``list[y][x][z]``.
     :rtype: list[list[list[int]]] or list[list[tuple[int]]].
 
@@ -124,7 +131,7 @@ def create_image(X: int, Y: int, Z: int, cheat: bool = True) -> list[list[list[i
     #         since the latter creates cross-row links as well.
 
     return [[[z for z in range(Z)] for x in range(X)] for y in range(Y)]
-    # ↑ Fair 3D-list comprehension, no cheating, no cross-links.
+    # ↑ Fair 3D-list comprehension, no cheating, no cross-links, no speed gain.
 
 
 def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: int, wrap_around: bool = False, keep_alpha: bool = False) -> list[list[list[int]]]:
@@ -155,13 +162,13 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
     # ↓ Number of color channels, alpha excluded.
     Z_COLOR = Z if Z == 1 or Z == 3 else min(Z - 1, 3)
 
-    """ ╭──────────────────────────────────────────╮
-        │ Coordinates for reading and writing.     │
-        │ NOTE: with 0 overhead filter never goes  │
-        │ out of image list index, so separate src │
-        │ for repeat edge is unnecessary, and is   │
-        │ kept here just for reference and reuse.  │
-        ╰──────────────────────────────────────────╯ """
+    """ ╭─────────────────────────────────────────╮
+        │ Coordinates for reading and writing.    │
+        │ NOTE: with 0 overhead filter never goes │
+        │ out of image list index, so separate    │
+        │ `src` for repeat edge is unnecessary,   │
+        │ and is kept here for generalization.    │
+        ╰─────────────────────────────────────────╯ """
 
     def _cx_repeat(x: int) -> int:
         """``x`` coordinate for repeat edge processing"""
@@ -179,18 +186,16 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
         """``y`` coordinate for wrap around processing"""
         return int(y) % Y  # y wrap around
 
-    # ↓ Setting wrap around as default, with overhead = 0 it works like "as is".
-    cx = _cx_wrap
-    cy = _cy_wrap
-
     """ Threshold criteria may never be met, yet loop must be stopped somewhere.
         Therefore some maximal run length overhead defined be must.
         Small values sometimes fail (i.e. filter prematurely react
         on short smooth sequences), while values bigger than image size make no sense. """
     if wrap_around:
         x_overhead, y_overhead = X, Y
+        cx, cy = _cx_wrap, _cy_wrap
     else:
         x_overhead = y_overhead = 0
+        cx, cy = _cx_repeat, _cy_repeat
 
     """ ╭─────────────────╮
         │ Horizontal pass │
@@ -198,14 +203,17 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
     # ↓ Creating empty intermediate image.
     intermediate_image = create_image(X, Y, Z, cheat=True)
 
-    def _criterion_x(channel: int, channel_sum: int) -> bool:
-        """Threshold criterion for horizontal pass, single channel.
-        Uses outer scope ``number`` and ``threshold_x``."""
-        return abs(channel - (channel_sum / number)) > threshold_x
-        # ↑ Defined function seem to work ca. 5% faster than lambda.
-        #   Uses outer scope `number` and `threshold_x`.
+    def _row(y):
+        """Processing row №``y``; function for ThreadPoolExecutor.
+        Row is overwritten during processing, thus no return required."""
 
-    for y in range(0, Y, 1):
+        def _criterion_x(channel: int, channel_sum: int) -> bool:
+            """Threshold criterion for horizontal pass, single channel.
+            Uses outer scope ``number`` and ``threshold_x``."""
+            return abs(channel - (channel_sum / number)) > threshold_x
+            # ↑ Defined function seem to work ca. 5% faster than lambda.
+            #   Uses outer scope `number` and `threshold_x`.
+
         x_start = 0  # Defining start of inner loop of averaging until threshold hit.
         number = 1  # Number of pixels being read during averaging loop.
         pixel = source_image[cy(y)][0]  # Starting pixel.
@@ -232,18 +240,34 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
                 pixels_sum = pixel
             intermediate_image[y][cx(x)] = pixel  # Edge pixel.
 
+    # ↓ Feeding rows to `ThreadPoolExecutor()`
+    with ThreadPoolExecutor() as row_executor:
+        row_executor.map(_row, range(0, Y, 1))
+
+    """ # NOTE: Threaded variant of image creation (below) does not give any speed benefit!
+
+    with ThreadPoolExecutor() as empty_image_executor:
+        intermediate_image_future = empty_image_executor.submit(create_image, X, Y, Z, cheat=True)
+        result_image_future = empty_image_executor.submit(create_image, X, Y, Z, cheat=True)
+        intermediate_image = intermediate_image_future.result()
+        result_image = result_image_future.result()
+    """
+
     """ ╭───────────────╮
         │ Vertical pass │
         ╰───────────────╯ """
     # ↓ Creating empty final image.
     result_image = create_image(X, Y, Z, cheat=True)
 
-    def _criterion_y(channel: int, channel_sum: int) -> bool:
-        """Threshold criterion for vertical pass, single channel.
-        Uses outer scope ``number`` and ``threshold_y``."""
-        return abs(channel - (channel_sum / number)) > threshold_y
+    def _column(x):
+        """Processing column №``x``; function for ThreadPoolExecutor.
+        Column is overwritten during processing, thus no return required."""
 
-    for x in range(0, X, 1):
+        def _criterion_y(channel: int, channel_sum: int) -> bool:
+            """Threshold criterion for vertical pass, single channel.
+            Uses outer scope ``number`` and ``threshold_y``."""
+            return abs(channel - (channel_sum / number)) > threshold_y
+
         y_start = 0
         number = 1
         pixel = intermediate_image[0][cx(x)]
@@ -261,18 +285,26 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
                 pixels_sum = pixel
             result_image[cy(y)][x] = pixel
 
+    # ↓ Feeding columns to `ThreadPoolExecutor()`
+    with ThreadPoolExecutor() as column_executor:
+        column_executor.map(_column, range(0, X, 1))
+
     """ ╭────────────────╮
         │ Alpha handling │
         ╰────────────────╯ """
-    if Z == 1 or Z == 3:
-        return result_image
-    else:
-        if keep_alpha:
-            # ↓ Unpacking result_image pixels, overwriting alpha, and packing back.
-            resultimage_plus_alpha = [[(*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)] for y in range(Y)]
-            return resultimage_plus_alpha
-        else:
-            return result_image
+    if (Z == 2 or Z > 3) and keep_alpha:
+
+        def _repack_row(y):
+            """Unpacking ``result_image`` pixels within a row,
+            overwriting alpha with ``source_image`` one,
+            and packing pixels back, in a row."""
+            result_image[y] = [(*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)]
+
+        # ↓ Unpacking `result_image` pixels, overwriting alpha, and packing back.
+        with ThreadPoolExecutor() as repack_executor:
+            repack_executor.map(_repack_row, range(0, Y, 1))
+
+    return result_image
 
 
 # ↑ filter finished
