@@ -57,7 +57,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.33.25.13'  # 'POV-Ray Thread' 25 Sep 2026, export modules v. 1
+__version__ = '1.34.10.1'  # 'POV-Ray Thread' 10 Oct 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -141,7 +141,7 @@ def UIBusy() -> None:
 
 
 def UIFit() -> None:
-    """Readopting 'sortir.minsize' to fit the screen."""
+    """Readopting ``sortir.minsize`` to fit the screen."""
 
     sortir.update()
     fit_width, fit_height = (
@@ -152,13 +152,13 @@ def UIFit() -> None:
 
 
 def canvasCoord(event):
-    """Marking 'canvas' click pont for further dragging."""
+    """Marking ``canvas`` click pont for further dragging."""
 
     canvas.scan_mark(event.x, event.y)
 
 
 def canvasDrag(event):
-    """Dragging 'canvas' Canvas."""
+    """Dragging ``canvas`` Canvas."""
 
     canvas.scan_dragto(
         event.x,
@@ -169,7 +169,7 @@ def canvasDrag(event):
 
 
 def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
-    """Show 'preview_choice' PhotoImage, trying to fit 'canvas' to screen."""
+    """Show ``preview_choice`` PhotoImage, trying to fit ``canvas`` to screen."""
 
     global preview
 
@@ -204,7 +204,7 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
 
 
 def SwitchView(event=None) -> None:
-    """Switch preview between preview_src and preview_filtered."""
+    """Switch preview between ``preview_src`` and ``preview_filtered``."""
 
     global view_src
 
@@ -447,7 +447,7 @@ def zoomOne(event=None) -> None:
 
 
 def zoomWheel(event) -> None:
-    """zoomIn or zoomOut by mouse wheel."""
+    """``zoomIn`` or ``zoomOut`` by mouse wheel."""
 
     if event.widget not in transparent_controls:
         if event.delta < 0:
@@ -457,7 +457,7 @@ def zoomWheel(event) -> None:
 
 
 def SaveAsLinen() -> None:
-    """Once pressed on Linen."""
+    """Once pressed on ``Export Linen...``."""
 
     savefilename = asksaveasfilename(
         title='Save POV-Ray file',
@@ -481,7 +481,7 @@ def SaveAsLinen() -> None:
 
 
 def SaveAsStitch() -> None:
-    """Once pressed on Stitch."""
+    """Once pressed on ``Export Stitch...``."""
 
     savefilename = asksaveasfilename(
         title='Save POV-Ray file',
@@ -545,9 +545,9 @@ view_src = True
 """Whether source image should be shown rather than the result."""
 minizoom, maxizoom = (-4, 4)  # Zoom from 1:5 to 5:1
 """`minizoom` is a maximal zoom out + 1 (image looks `mini`),
-   `maxizoom` is a maximal zoom in + 1 (image looks `maxi`)."""
+   `maxizoom` is a maximal zoom in - 1 (image looks `maxi`)."""
 threshold_increment = 1
-"""Threshold increment for incWheel() and spinboxes."""
+"""Threshold increment for ``incWheel()`` and spinboxes."""
 
 some_help = (
     'Preview area:',
