@@ -1,4 +1,4 @@
-"""Adaptive average image filtering module.
+"""Adaptive average image filtering module, multithreaded version.
 
 Usage
 -----
@@ -55,7 +55,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '4.34.10.1'  # 10 Oct 2026
+__version__ = '4.34.14.4'  # 14 Oct 2026
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'

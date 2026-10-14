@@ -6,12 +6,12 @@
 Pure Python image filtering module for `POV-Ray Thread`_ and
 `Averager`_ applications.
 
-.. note:: This version is supposed to be used with three-threaded Python.
+.. note:: This version is intended to be used with three-threaded Python.
     It works with GIL-enabled Python ca. 2% slower as compared to
     "classic" filter ver. 3.33.23.23; with no-GIL Python, however,
-    speed is multiplied proportional to number of physical CPUs.
+    speed multiplication is proportional to number of physical CPU cores.
 
-Initial purpose was transforming row sequences of closely colored pixels
+Initial filter purpose was transforming row sequences of closely colored pixels
 into a sequence of the same solid color to simulate single thread in canvas;
 however filter may work with columns as well,
 producing squarish flat color areas.
@@ -92,13 +92,14 @@ POV-Ray Thread source: main `@Github`_ and mirror `@Gitflic`_
 # 3.26.6.18     Major minor refurbishment: docstring etc. etc.
 # 3.26.20.8     Surprisingly, there is a room for optimizing "create_image"!
 # 3.33.23.23    Converting some lists to tuples gives ca. 7% more speed.
-# 4.34.10.1     Major change: loops to ThreadPoolExecutors.
+# 4.34.10.1     Major change: loops → ThreadPoolExecutors.
+# 4.34.14.4     Tidying up.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '4.34.10.1'  # 10 Oct 2026
+__version__ = '4.34.14.4'  # 14 Oct 2026
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -125,10 +126,10 @@ def create_image(X: int, Y: int, Z: int, cheat: bool = True) -> list[list[list[i
 
     if cheat:
         return [[(0,) * Z] * X for y in range(Y)]
-    # ↑ Works ca. 80 times faster than fair 3D-list comprehension,
-    #   but creates in-row and in-pixel links, harmless for this filter.
-    #   NOTE: Can NOT be replaced with "[[[0] * Z] * X] * Y",
-    #         since the latter creates cross-row links as well.
+        # ↑ Works ca. 80 times faster than fair 3D-list comprehension below,
+        #   but creates in-row and in-pixel links, harmless for this filter.
+        #   NOTE: Can NOT be replaced with "[[[0] * Z] * X] * Y",
+        #         since the latter creates cross-row links as well.
 
     return [[[z for z in range(Z)] for x in range(X)] for y in range(Y)]
     # ↑ Fair 3D-list comprehension, no cheating, no cross-links, no speed gain.
@@ -244,15 +245,6 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
     with ThreadPoolExecutor() as row_executor:
         row_executor.map(_row, range(0, Y, 1))
 
-    """ # NOTE: Threaded variant of image creation (below) does not give any speed benefit!
-
-    with ThreadPoolExecutor() as empty_image_executor:
-        intermediate_image_future = empty_image_executor.submit(create_image, X, Y, Z, cheat=True)
-        result_image_future = empty_image_executor.submit(create_image, X, Y, Z, cheat=True)
-        intermediate_image = intermediate_image_future.result()
-        result_image = result_image_future.result()
-    """
-
     """ ╭───────────────╮
         │ Vertical pass │
         ╰───────────────╯ """
@@ -300,7 +292,7 @@ def filter(source_image: list[list[list[int]]], threshold_x: int, threshold_y: i
             and packing pixels back, in a row."""
             result_image[y] = [(*result_image[y][x][:Z_COLOR], source_image[y][x][Z_COLOR]) for x in range(X)]
 
-        # ↓ Unpacking `result_image` pixels, overwriting alpha, and packing back.
+        # ↓ Unpacking `result_image` pixels, overwriting alpha, and packing back, row by row .
         with ThreadPoolExecutor() as repack_executor:
             repack_executor.map(_repack_row, range(0, Y, 1))
 
