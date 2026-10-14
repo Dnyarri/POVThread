@@ -66,12 +66,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 # 3.32.22.8     With more UI improvements "Averager" becomes a GUI standard ;-)
 # 3.33.1.7      Further GUI code generalization; var docstrings added.
 # 4.34.9.9      Changed GUI from single window to modular to improve screen usage.
+# 4.34.14.4     Substantial internal changes in GUI code, including windows restructure.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '4.34.10.1'  # 10 Oct 2026, 'filter' ver. 4
+__version__ = '4.34.14.4'  # 'Averager' 14 Oct 2026, 'filter' v. 4
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -123,7 +124,7 @@ def ShowHelp(event=None) -> None:
     showinfo(
         title=f'{product_name} quick help',
         message=f'{product_name} {__version__} is a program averaging image pixels in a row until threshold of maximal difference between source and average hit, then repeating the same in a column.\nMain GUI functions are listed below:',
-        detail=help_str,
+        detail=f'{help_str}\n\nYour Python is {VER}, free threading is {NOGIL}',
     )
 
 
@@ -141,7 +142,8 @@ def UINormal() -> None:
     if Z == 1 or Z == 3:  # "Keep alpha" checkbox
         check_keep_alpha['state'] = 'disabled'
         check_keep_alpha['cursor'] = 'arrow'
-    sortir['cursor'] = ''
+    whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = ''
+    zanyato['state'] = 'normal'
     sortir.update()
 
 
@@ -153,20 +155,21 @@ def UIBusy() -> None:
             widget['state'] = 'disabled'
         if widget.winfo_class() in ('Label', 'Button', 'Checkbutton'):
             widget['cursor'] = 'wait'
-    info_string.config(text=info_busy['txt'], foreground=info_busy['fg'], background=info_busy['bg'])
-    sortir['cursor'] = 'wait'
+    info_string.config(text=f'BUSY {operation.upper()}', foreground=info_busy['fg'], background=info_busy['bg'])
+    whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = 'wait'
+    zanyato['state'] = 'disabled'
     sortir.update()
 
 
 def UIFit() -> None:
-    """Readopting ``vidwindow.minsize`` to fit the screen."""
+    """Readopting ``sortir.minsize`` to fit the screen."""
 
-    vidwindow.update()
+    sortir.update()
     fit_width, fit_height = (
-        min(vidwindow.winfo_reqwidth(), 9 * vidwindow.winfo_screenwidth() // 10),
-        min(vidwindow.winfo_reqheight(), 9 * vidwindow.winfo_screenheight() // 10),
+        min(sortir.winfo_reqwidth(), 9 * sortir.winfo_screenwidth() // 10),
+        min(sortir.winfo_reqheight(), 9 * sortir.winfo_screenheight() // 10),
     )
-    vidwindow.minsize(fit_width, fit_height)
+    sortir.minsize(fit_width, fit_height)
 
 
 def canvasCoord(event):
@@ -210,8 +213,8 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         relief='flat',  # Other reliefs seem to interfere with image
     )
     preview_width, preview_height = (
-        min(preview.width(), 9 * vidwindow.winfo_screenwidth() // 10),
-        min(preview.height(), (9 * vidwindow.winfo_screenheight() // 10) - frame_zoom.winfo_reqheight() - 20),
+        min(preview.width(), 9 * sortir.winfo_screenwidth() // 10),
+        min(preview.height(), (9 * sortir.winfo_screenheight() // 10) - frame_zoom.winfo_reqheight() - 20),
     )
     canvas.config(
         width=preview_width,
@@ -224,7 +227,6 @@ def ShowPreview(preview_choice: PhotoImage, caption: str) -> None:
         width=preview.width(),
         height=preview.height(),
     )
-    vidwindow.lower(sortir)
 
 
 def SwitchView(event=None) -> None:
@@ -315,8 +317,8 @@ def GetSource(event=None) -> None:
     preview_src = preview_filtered = preview
 
     # ↓ Calculate zoom factor for "Zoom to fit".
-    if preview.width() > vidwindow.winfo_screenwidth() or (128 + preview.height()) > sortir.winfo_screenheight():
-        zoom_factor = max(-max(preview.width() // vidwindow.winfo_screenwidth(), (128 + preview.height() + frame_zoom.winfo_reqheight()) // vidwindow.winfo_screenheight()), minizoom)
+    if preview.width() > sortir.winfo_screenwidth() or (128 + preview.height()) > sortir.winfo_screenheight():
+        zoom_factor = max(-max(preview.width() // sortir.winfo_screenwidth(), (128 + preview.height() + frame_zoom.winfo_reqheight()) // sortir.winfo_screenheight()), minizoom)
 
     # ↓ Finally the show part
     ShowPreview(preview, 'Source')
@@ -357,7 +359,7 @@ def GetSource(event=None) -> None:
         color_mode_str = f' (RGBA:{"8" if maxcolors < 256 else "16"})'
     else:
         color_mode_str = ''  # Just in case
-    vidwindow.title(f'{product_name}: {Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""}')
+    sortir.title(f'{Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""} | VidWindow')
     info_normal = {'txt': f'{Path(sourcefilename).name}{"*" if is_filtered else ""} X={X} Y={Y} Z={Z} maxcolors={maxcolors}', 'fg': 'grey', 'bg': 'grey90'}
     # ↓ "Filter" mouseover
     butt_filter.bind('<Enter>', lambda event=None: butt_filter.config(foreground=butt['activeforeground'], background=butt['activebackground']))
@@ -378,9 +380,8 @@ def GetSource(event=None) -> None:
     spin_y.bind('<MouseWheel>', incWheel)
     UINormal()
     UIFit()
-    vidwindow.geometry(f'{vidwindow.winfo_reqwidth()}x{vidwindow.winfo_reqheight()}+{(vidwindow.winfo_screenwidth() - vidwindow.winfo_reqwidth()) // 2}+64')
-    sortir.minsize(sortir.winfo_reqwidth(), sortir.winfo_reqheight())
-    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}')
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+64')
+    whoever.geometry(f'{whoever.winfo_reqwidth()}x{whoever.winfo_reqheight()}')
     zanyato.focus_set()
 
 
@@ -403,6 +404,8 @@ def RunFilter(event=None) -> None:
     except TclError:
         ini_threshold_y.set(0)
 
+    operation = 'Filtering'
+
     # ↓ Now .get() filtering parameters
     threshold_x = maxcolors * ini_threshold_x.get() // 255  # Rescaling for 16-bit
     threshold_y = maxcolors * ini_threshold_y.get() // 255
@@ -414,7 +417,6 @@ def RunFilter(event=None) -> None:
     """ ┌─────────────────┐
         │ Filtering image │
         └─────────────────┘ """
-    operation = 'Filtering'
     start = time()
     result_image = filter(source_image, threshold_x, threshold_y, wraparound, keep_alpha)
     timing = time() - start
@@ -436,11 +438,12 @@ def RunFilter(event=None) -> None:
     # ↓ Binding switch on preview click
     zanyato.bind('<Button-1>', SwitchView)
     zanyato.bind('<ButtonRelease-1>', SwitchView)
-    zanyato.bind('<space>', SwitchView)  # # "Space" key. May be worth binding whole sortir?
+    zanyato.bind('<space>', SwitchView)
     # ↓ Adding filename, mode and status to window title a-la Photoshop
-    vidwindow.title(f'{product_name}: {Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""}')
+    sortir.title(f'{Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""} | VidWindow')
     info_normal = {'txt': f'{Path(sourcefilename).name}{"*" if is_filtered else ""} X={X} Y={Y} Z={Z} maxcolors={maxcolors}', 'fg': 'grey', 'bg': 'grey90'}
     UINormal()
+    whoever.geometry(f'{whoever.winfo_reqwidth()}x{whoever.winfo_reqheight()}')
     zanyato.focus_set()  # moving focus to preview
 
 
@@ -463,7 +466,6 @@ def zoomIn(event=None) -> None:
     else:
         butt_plus.config(state='normal', cursor='hand2')
     UIFit()
-    vidwindow.update()
 
 
 def zoomOut(event=None) -> None:
@@ -485,7 +487,8 @@ def zoomOut(event=None) -> None:
     else:
         butt_minus.config(state='normal', cursor='hand2')
     UIFit()
-    vidwindow.update()
+    # ↓ Reducing 'VidWindow' size when zooming out
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}')
 
 
 def zoomOne(event=None) -> None:
@@ -504,7 +507,8 @@ def zoomOne(event=None) -> None:
     butt_plus.config(state='normal', cursor='hand2')
     butt_minus.config(state='normal', cursor='hand2')
     UIFit()
-    vidwindow.update()
+    # ↓ Reducing 'VidWindow' size in case when zoom 1:1 is zooming out
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}')
 
 
 def zoomWheel(event) -> None:
@@ -533,11 +537,11 @@ def onSave() -> None:
     sortir.unbind_all('<Control-s>')
     # ↓ Binding switch on preview click
     zanyato.unbind('<Button-1>')  # left click
-    zanyato.unbind('<space>')  # # "Space" key. May be worth binding whole sortir?
+    zanyato.unbind('<space>')
     # ↓ Preview source
     ShowPreview(preview_src, 'Source')
     # ↓ Adding filename, mode and status to window title a-la Photoshop
-    vidwindow.title(f'{product_name}: {Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""}')
+    sortir.title(f'{Path(sourcefilename).name}{color_mode_str}{"*" if is_filtered else ""} | VidWindow')
     info_normal = {'txt': f'{Path(sourcefilename).name}{"*" if is_filtered else ""} X={X} Y={Y} Z={Z} maxcolors={maxcolors}', 'fg': 'grey', 'bg': 'grey90'}
     UINormal()
 
@@ -694,20 +698,33 @@ is_filtered = False
 is_saved = False
 """Whether image was saved after filtering was performed."""
 
-operation = 'Awaiting orders'
-"""Name of most recent operation timing was calculated for."""
-
 timing = 0
 """Execution time for most recent operation."""
 
 maxizoom = 4
-"""Maximal 5:1 zoom for ``ZoomIn()``. Mnemonic: "maxi" means "image look big"."""
+"""Maximal zoom:1 for ZoomIn(). Mnemonic: "maxi" means "image look big"."""
 
 minizoom = -4
-"""Maximal 1:5 zoom for ``ZoomOut()``. Mnemonic: "mini" means "image look small"."""
+"""Maximal 1:zoom for ZoomOut(). Mnemonic: "mini" means "image look small"."""
 
 threshold_increment = 1
-"""Threshold increment for ``incWheel()`` and spinboxes."""
+"""Threshold increment for incWheel() and spinboxes."""
+
+# ↓ Info for debugging and help
+try:
+    from sys import _is_gil_enabled  # whether free threading EXIST in this Python version
+    NOGIL = not _is_gil_enabled()  # whether free threading WORK in this Python build
+except ImportError:
+    NOGIL = False
+
+try:
+    from platform import python_version
+    VER = python_version()
+except ImportError:
+    VER = 'Unknown'
+
+operation = f'Python {VER}, free threading is {NOGIL}, startup'
+"""Name of most recent operation timing was calculated for."""
 
 some_help = (
     'Preview area:',
@@ -727,22 +744,24 @@ some_help = (
 help_str = '\n'.join(some_help)
 """Help str to be used for both main window and F1."""
 
+
 """ ╔═══════════╗
     ║ Main body ║
     ╚═══════════╝ """
 sortir = Tk()
-"""Main dialog window."""
+"""Main dialog window, containing ``frame_preview`` Frame."""
+sortir.title(f'{product_name} | VidWindow')
 sortir.iconphoto(True, PhotoImage(data=b''.join(('P6\n3 16\n255\n'.encode(encoding='ascii'), randbytes(3 * 16 * 3)))))
-sortir.title(f'{product_name} {__version__} control panel')
 
 validate_entry = sortir.register(valiDig)
 """Name of ``validatecommand`` option for entries and spinboxes."""
 
-vidwindow = Toplevel(sortir)
-"""Toplevel window for ``frame_preview`` Frame."""
-vidwindow.title(f'{product_name} preview window')
-vidwindow.protocol('WM_DELETE_WINDOW', lambda: None)
-vidwindow.lower(sortir)
+whoever = Toplevel(sortir)
+"""Whoever controls Dune."""
+whoever.title(f'{product_name} {__version__} | Controls')
+whoever.transient(sortir)  # make control panel always on top
+whoever.protocol('WM_DELETE_WINDOW', lambda: None)  # block any attempt to close control panel
+sortir.protocol('WM_DELETE_WINDOW', DisMiss)  # just to be temporarily explicit
 
 # ↓ Buttons properties dictionary
 butt = {
@@ -768,7 +787,7 @@ info_normal = {'txt': f'Adaptive Average {__version__}', 'fg': 'grey', 'bg': 'gr
 info_busy = {'txt': 'BUSY, PLEASE WAIT', 'fg': 'red', 'bg': 'yellow'}
 # ↓ Info string
 info_string = Label(
-    sortir,
+    whoever,
     text=info_normal['txt'],
     font=('courier', 7),
     foreground=info_normal['fg'],
@@ -781,7 +800,7 @@ info_string.pack(side='bottom', padx=0, pady=(2, 0), fill='both')
 """ ┌──────────────────────┐
     │ Top frame (controls) │
     └─────────────────────-┘ """
-frame_top = Frame(sortir, borderwidth=2, relief='groove')
+frame_top = Frame(whoever, borderwidth=2, relief='groove')
 """Frame containing controls."""
 frame_top.pack(side='top', anchor='w', pady=(0, 2))
 
@@ -923,7 +942,7 @@ butt_filter.grid(row=0, column=6, rowspan=2, sticky='nsew', padx=(10, 0), pady=0
     │ Center frame (image preview) │
     └─────────────────────────────-┘ """
 frame_preview = LabelFrame(
-    vidwindow,
+    sortir,
     text='Preview area',
     font=('helvetica', 8),
     relief='groove',
@@ -995,14 +1014,14 @@ transparent_controls = (spin_x, spin_y)
 # ↓ Info string binding for displaying filter execution time
 info_string.bind('<Enter>', lambda event=None: info_string.config(text=f'{operation} time: {round(timing, 3)} sec'))
 info_string.bind('<Leave>', lambda event=None: info_string.config(text=info_normal['txt']))
-info_string.bind('<Control-Button-1>', lambda event=None: [sortir.clipboard_clear(), sortir.clipboard_append(f'{timing}\n')])
+info_string.bind('<Control-Button-1>', lambda event=None: [whoever.clipboard_clear(), whoever.clipboard_append(f'{timing}\n')])
 # ↓ "File..." mouseover
 butt_file.bind('<Enter>', lambda event=None: butt_file.config(relief=butt['overrelief']))
 butt_file.bind('<Leave>', lambda event=None: butt_file.config(relief=butt['relief']))
 # ↓ Double-click image area to "Open..."
 zanyato.bind('<Double-Button-1>', GetSource)
 frame_preview.bind('<Double-Button-1>', GetSource)
-# ↓ Whole sortir binding menu, "Open..." and "Exit"
+# ↓ Whole whoever binding menu, "Open..." and "Exit"
 sortir.bind_all('<Button-3>', ShowMenu)
 sortir.bind_all('<Alt-f>', ShowMenu)
 sortir.bind_all('<Alt-F>', ShowMenu)
@@ -1014,16 +1033,22 @@ sortir.bind_all('<Control-Q>', DisMiss)
 sortir.bind_all('<Control-w>', DisMiss)
 sortir.bind_all('<Control-W>', DisMiss)
 
-sortir.update()  # Make Tkinter build GUI to make it calculate requested sizes.
-sortir.resizable(True, False)
+# ↓ Make Tkinter build GUI to make it calculate requested sizes.
+sortir.update()
+whoever.update()
+whoever.resizable(False, False)
 
 # ↓ Readopting minsize
 UIFit()
+whoever.minsize(whoever.winfo_reqwidth(), whoever.winfo_reqheight())
 # ↓ Setting maxsize to fit 90% of screen
-vidwindow.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
-# ↓ Center window horizontally, +64 vertically
-vidwindow.geometry(f'+{(sortir.winfo_screenwidth() - vidwindow.winfo_width() - sortir.winfo_width()) // 2}+64')
-sortir.minsize(sortir.winfo_reqwidth(), sortir.winfo_reqheight())
-sortir.geometry(f'+{(sortir.winfo_screenwidth() - vidwindow.winfo_width() - sortir.winfo_width()) // 2 + vidwindow.winfo_width() + 4}+64')
+sortir.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
+# ↓ Align windows and center window group horizontally, +64 vertically
+sortir.geometry(f'+{(sortir.winfo_screenwidth() - whoever.winfo_width() - sortir.winfo_width() + 32) // 2}+64')
+whoever.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width() - whoever.winfo_width()) // 2 + sortir.winfo_width() - 32}+128')
+
+# ↓ Experimental alpha usage on focus. Looks good for useability but compatibility seems to suck.
+"""whoever.bind('<Enter>', lambda event=None: whoever.attributes('-alpha', 0.9))
+whoever.bind('<Leave>', lambda event=None: whoever.attributes('-alpha', 0.6))"""
 
 sortir.mainloop()
