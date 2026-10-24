@@ -57,7 +57,7 @@ __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '1.34.10.1'  # 'POV-Ray Thread' 10 Oct 2026, export modules v. 1
+__version__ = '1.34.24.24'  # 'POV-Ray Thread' 24 Oct 2026, export modules v. 1
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -424,6 +424,8 @@ def zoomOut(event=None) -> None:
     else:
         butt_minus.config(state='normal', cursor='hand2')
     UIFit()
+    # ↓ Reducing 'VidWindow' size when zooming out
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}')
     sortir.update()
 
 
@@ -566,16 +568,9 @@ some_help = (
 help_str = '\n'.join(some_help)
 """Help str to be used for both main window and F1."""
 
-""" ╔═══════════╗
-    ║ Main body ║
-    ╚═══════════╝ """
-sortir = Tk()
-"""Main dialog window."""
-sortir.iconphoto(True, PhotoImage(data=b''.join(('P6\n3 16\n255\n'.encode(encoding='ascii'), randbytes(3 * 16 * 3)))))
-sortir.title(product_name)
-
-validate_entry = sortir.register(valiDig)
-
+""" ╒═ Dictionaries ═════════════╕
+    │ Bindings, properties, etc. │
+    ╰────────────────────────────╯ """
 # ↓ Buttons properties dictionary
 butt = {
     'font': ('helvetica', 12),
@@ -588,16 +583,38 @@ butt = {
     'activeforeground': 'dark blue',
     'activebackground': '#E5F1FB',
 }
-"""Buttons properties dictionary."""
+"""Buttons properties dictionary, keys are ``font``, ``cursor``, ``border``,
+    ``relief``, ``overrelief``, ``foreground``, ``background``,
+    ``activeforeground``, ``activebackground``."""
 
 # ↓ Info statuses dictionaries
-info_normal = {'txt': f'{product_name} {__version__}', 'fg': 'grey', 'bg': 'grey90'}
-info_busy = {'txt': 'BUSY, PLEASE WAIT', 'fg': 'red', 'bg': 'yellow'}
+info_normal = {
+    'txt': f'{product_name} {__version__}',
+    'fg': 'grey',
+    'bg': 'grey90',
+}
+"""``info_string`` properties in normal state"""
+info_busy = {
+    'txt': 'BUSY, PLEASE WAIT',
+    'fg': 'red',
+    'bg': 'yellow',
+}
+"""``info_string`` properties in busy state"""
+
+""" ╔═══════════╗
+    ║ Main body ║
+    ╚═══════════╝ """
+sortir = Tk()
+"""Main dialog window."""
+sortir.iconphoto(True, PhotoImage(data=b''.join(('P6\n3 16\n255\n'.encode(encoding='ascii'), randbytes(3 * 16 * 3)))))
+sortir.title(product_name)
+
+validate_entry = sortir.register(valiDig)
 
 info_string = Label(
     sortir,
     text=info_normal['txt'],
-    font=('courier', 7),
+    font=('helvetica', 8),
     foreground=info_normal['fg'],
     background=info_normal['bg'],
     relief='groove',

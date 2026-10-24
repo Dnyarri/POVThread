@@ -67,12 +67,13 @@ POV-Ray Thread Git repositories: main `@Github`_ and mirror `@Gitflic`_
 # 3.33.1.7      Further GUI code generalization; var docstrings added.
 # 4.34.9.9      Changed GUI from single window to modular to improve screen usage.
 # 4.34.14.4     Substantial internal changes in GUI code, including windows restructure.
+# 4.34.17.21    Gradually moving common binding and properties to dictionaries.
 
 __author__ = 'Ilya Razmanov'
 __copyright__ = '(c) 2024-2026 Ilya Razmanov'
 __credits__ = 'Ilya Razmanov'
 __license__ = 'unlicense'
-__version__ = '4.34.14.4'  # 'Averager' 14 Oct 2026, 'filter' v. 4
+__version__ = '4.34.24.24'  # 'Averager' 24 Oct 2026, 'filter' v. 4
 __maintainer__ = 'Ilya Razmanov'
 __email__ = 'ilyarazmanov@gmail.com'
 __status__ = 'Production'
@@ -124,7 +125,7 @@ def ShowHelp(event=None) -> None:
     showinfo(
         title=f'{product_name} quick help',
         message=f'{product_name} {__version__} is a program averaging image pixels in a row until threshold of maximal difference between source and average hit, then repeating the same in a column.\nMain GUI functions are listed below:',
-        detail=f'{help_str}\n\nYour Python is {VER}, free threading is {NOGIL}',
+        detail=f'{help_str}\nInfo bar:\n Ctrl+Click copies last operation timing to clipboard;\n Alt+Click starts/stops continuous copying for every operation.\n\nRunning under Python  {VER}, free threading is {NOGIL}, PyPNM {__version__} {SUBVERSION}',
     )
 
 
@@ -134,14 +135,9 @@ def UINormal() -> None:
     for widget in frame_top.winfo_children():
         if widget.winfo_class() in ('Label', 'Button', 'Spinbox', 'Checkbutton'):
             widget['state'] = 'normal'
-        if widget.winfo_class() in ('Button', 'Checkbutton'):
-            widget['cursor'] = 'hand2'
-        if widget.winfo_class() in ('Label',):
-            widget['cursor'] = 'arrow'
     info_string.config(text=info_normal['txt'], foreground=info_normal['fg'], background=info_normal['bg'])
-    if Z == 1 or Z == 3:  # "Keep alpha" checkbox
+    if Z in (1, 3):
         check_keep_alpha['state'] = 'disabled'
-        check_keep_alpha['cursor'] = 'arrow'
     whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = ''
     zanyato['state'] = 'normal'
     sortir.update()
@@ -153,10 +149,11 @@ def UIBusy() -> None:
     for widget in frame_top.winfo_children():
         if widget.winfo_class() in ('Label', 'Button', 'Spinbox', 'Checkbutton'):
             widget['state'] = 'disabled'
-        if widget.winfo_class() in ('Label', 'Button', 'Checkbutton'):
-            widget['cursor'] = 'wait'
     info_string.config(text=f'BUSY {operation.upper()}', foreground=info_busy['fg'], background=info_busy['bg'])
-    whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = 'wait'
+    try:  # trying to be cross-platform, based on ``Python312\tcl\tk8.6\ttk\cursors.tcl``
+        whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = 'wait'
+    except TclError:
+        whoever['cursor'] = sortir['cursor'] = zanyato['cursor'] = 'watch'
     zanyato['state'] = 'disabled'
     sortir.update()
 
@@ -299,6 +296,8 @@ def GetSource(event=None) -> None:
     else:
         raise ValueError('Extension not recognized')
     timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
 
     # ↓ Creating deep copy of source 3D list
     #   to avoid accumulating repetitive filtering.
@@ -308,7 +307,12 @@ def GetSource(event=None) -> None:
         │ Viewing image │
         └───────────────┘ """
     # ↓ Converting list to bytes of PNM-like structure "preview_data" in memory
+    operation = 'Preview'
+    start = time()
     preview_data = list2bin(result_image, maxcolors, show_chessboard=True)
+    timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
     # ↓ Now generating preview from "preview_data" bytes using Tkinter
     preview = PhotoImage(data=preview_data)
 
@@ -323,20 +327,9 @@ def GetSource(event=None) -> None:
     # ↓ Finally the show part
     ShowPreview(preview, 'Source')
 
-    # ↓ Binding preview mouse drag
-    zanyato.bind('<Motion>', canvasCoord)
-    zanyato.bind('<B1-Motion>', canvasDrag)
-    zanyato.bind('<ButtonRelease-1>', lambda event: canvas.config(cursor='arrow'))  # cursor back after drag
-    # ↓ Binding preview click
-    zanyato.bind('<Control-Button-1>', zoomIn)  # Ctrl + left click
-    zanyato.bind('<Double-Control-Button-1>', zoomIn)  # Ctrl + left click too fast
-    zanyato.bind('<Control-+>', zoomIn)
-    zanyato.bind('<Control-=>', zoomIn)
-    zanyato.bind('<Alt-Button-1>', zoomOut)  # Alt + left click
-    zanyato.bind('<Double-Alt-Button-1>', zoomOut)  # Alt + left click too fast
-    zanyato.bind('<Control-minus>', zoomOut)
-    zanyato.bind('<Control-Key-1>', zoomOne)
-    zanyato.bind('<Control-Alt-Key-0>', zoomOne)
+    # ↓ Binding preview click and mouse drag
+    for happens, function in bind.items():
+        zanyato.bind(happens, function)
     # ↓ Binding global
     sortir.bind_all('<Return>', RunFilter)
     sortir.bind_all('<MouseWheel>', zoomWheel)  # Wheel scroll
@@ -364,8 +357,14 @@ def GetSource(event=None) -> None:
     # ↓ "Filter" mouseover
     butt_filter.bind('<Enter>', lambda event=None: butt_filter.config(foreground=butt['activeforeground'], background=butt['activebackground']))
     butt_filter.bind('<Leave>', lambda event=None: butt_filter.config(foreground=butt['foreground'], background=butt['background']))
-    check_keep_alpha.bind('<Enter>', lambda event=None: check_keep_alpha.config(foreground=butt['activeforeground'], background=butt['activebackground']))
-    check_keep_alpha.bind('<Leave>', lambda event=None: check_keep_alpha.config(foreground=butt['foreground'], background=butt['background']))
+    # ↓ Checkbox mouseovers
+    if Z in (1, 3):
+        check_keep_alpha.unbind('<Enter>')
+        check_keep_alpha.unbind('<Leave>')
+        ini_keep_alpha.set(False)
+    else:
+        check_keep_alpha.bind('<Enter>', lambda event=None: check_keep_alpha.config(foreground=butt['activeforeground'], background=butt['activebackground']))
+        check_keep_alpha.bind('<Leave>', lambda event=None: check_keep_alpha.config(foreground=butt['foreground'], background=butt['background']))
     check_wraparound.bind('<Enter>', lambda event=None: check_wraparound.config(foreground=butt['activeforeground'], background=butt['activebackground']))
     check_wraparound.bind('<Leave>', lambda event=None: check_wraparound.config(foreground=butt['foreground'], background=butt['background']))
     # ↓ Spinbox mouseovers
@@ -380,17 +379,15 @@ def GetSource(event=None) -> None:
     spin_y.bind('<MouseWheel>', incWheel)
     UINormal()
     UIFit()
-    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}+{(sortir.winfo_screenwidth() - sortir.winfo_reqwidth()) // 2}+64')
-    whoever.geometry(f'{whoever.winfo_reqwidth()}x{whoever.winfo_reqheight()}')
+    sortir.geometry(f'{sortir.winfo_reqwidth()}x{sortir.winfo_reqheight()}')
+    whoever.geometry(f'{whoever.winfo_reqwidth()}x{whoever.winfo_reqheight()}')  # width may change!
     zanyato.focus_set()
 
 
 def RunFilter(event=None) -> None:
     """Filter image, then preview result."""
 
-    global view_src, is_filtered, is_saved, info_normal, operation, timing
-    global preview_filtered
-    global result_image
+    global view_src, is_filtered, is_saved, info_normal, operation, timing, preview_filtered, result_image
 
     # ↓ Intercept TclError caused by "" input before .get() cause it.
     try:
@@ -420,9 +417,16 @@ def RunFilter(event=None) -> None:
     start = time()
     result_image = filter(source_image, threshold_x, threshold_y, wraparound, keep_alpha)
     timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
 
-    # ↓ Preview result
+    # ↓ Preview
+    operation = 'Preview'
+    start = time()
     preview_data = list2bin(result_image, maxcolors, show_chessboard=True)
+    timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
     preview_filtered = PhotoImage(data=preview_data)
 
     # ↓ Flagging as filtered, not saved
@@ -524,8 +528,7 @@ def zoomWheel(event) -> None:
 def onSave() -> None:
     """Reassign images and other objects from new to old upon saving."""
 
-    global preview_src, info_normal
-    global sourcefilename, source_image
+    global preview_src, info_normal, sourcefilename, source_image
 
     # ↓ Saved file becomes new source file
     sourcefilename = resultfilename
@@ -549,8 +552,7 @@ def onSave() -> None:
 def Save(event=None) -> None:
     """Once pressed on ``Save``."""
 
-    global is_filtered, is_saved, operation, timing
-    global resultfilename
+    global is_filtered, is_saved, operation, timing, resultfilename
 
     operation = 'Saving'
 
@@ -568,6 +570,9 @@ def Save(event=None) -> None:
     elif Path(resultfilename).suffix.lower() in ('.ppm', '.pgm', '.pnm'):
         list2pnm(resultfilename, result_image, maxcolors)  # Writing file
     timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
+
     # ↓ Flagging image as saved, not filtered
     is_saved = True  # to block future repetitive saving
     is_filtered = False
@@ -579,8 +584,7 @@ def Save(event=None) -> None:
 def SaveAs(event=None) -> None:
     """Once pressed on ``Save as...``"""
 
-    global is_saved, is_filtered, operation, timing
-    global resultfilename
+    global is_saved, is_filtered, operation, timing, resultfilename
 
     operation = 'Saving'
 
@@ -641,6 +645,8 @@ def SaveAs(event=None) -> None:
     else:
         raise ValueError('Extension not recognized')
     timing = time() - start
+    if logging:
+        whoever.clipboard_append(f'{operation} {timing}\n')
     # ↓ Flagging image as saved, not filtered, and disabling "Save"
     is_saved = True  # to block future repetitive saving
     is_filtered = False
@@ -677,6 +683,13 @@ def incWheel(event) -> None:
             ini_threshold_y.set(min(255, max(0, ini_threshold_y.get() + threshold_increment)))
 
 
+def turnLogging(event=None):
+    global logging
+    logging = not logging
+    whoever.clipboard_clear()
+    whoever.focus_set()
+
+
 """ ╒══════════════╕
     │ Initializing │
     ╰──────────────╯ """
@@ -710,21 +723,34 @@ minizoom = -4
 threshold_increment = 1
 """Threshold increment for incWheel() and spinboxes."""
 
+color_mode_str = ' '
+"""Image color mode info."""
+
 # ↓ Info for debugging and help
 try:
     from sys import _is_gil_enabled  # whether free threading EXIST in this Python version
+
     NOGIL = not _is_gil_enabled()  # whether free threading WORK in this Python build
-except ImportError:
+except ImportError:  # old Python without free threading
     NOGIL = False
 
 try:
     from platform import python_version
+
     VER = python_version()
 except ImportError:
     VER = 'Unknown'
 
-operation = f'Python {VER}, free threading is {NOGIL}, startup'
+try:
+    from pypnm import SUBVERSION
+except ImportError:
+    SUBVERSION = 'Unknown'
+
+operation = f'Start Python {VER} {NOGIL=}'
 """Name of most recent operation timing was calculated for."""
+
+logging = False
+"""Whether to put log to clipboard."""
 
 some_help = (
     'Preview area:',
@@ -739,11 +765,73 @@ some_help = (
     '  <Enter> to execute filter,',
     '  <Click> or <Space> to switch source/result view.',
 )
-"""Help list(str) to be used for both main window and F1."""
+"""Help ``tuple(str)`` to be used for both main window and F1."""
 
 help_str = '\n'.join(some_help)
-"""Help str to be used for both main window and F1."""
+"""Help ``str`` to be used for both main window and F1."""
 
+""" ╒═ Dictionaries ═════════════╕
+    │ Bindings, properties, etc. │
+    ╰────────────────────────────╯ """
+# ↓ Most common bindings dictionaries
+bind_all = {
+    '<Button-3>': ShowMenu,
+    '<Alt-f>': ShowMenu,
+    '<Alt-F>': ShowMenu,
+    '<F1>': ShowHelp,
+    '<Control-o>': GetSource,
+    '<Control-O>': GetSource,
+    '<Control-q>': DisMiss,
+    '<Control-Q>': DisMiss,
+    '<Control-w>': DisMiss,
+    '<Control-W>': DisMiss,
+}
+"""Main window bindings before image open, ``event: function`` pairs."""
+bind = {
+    '<Motion>': canvasCoord,
+    '<B1-Motion>': canvasDrag,
+    '<Control-Button-1>': zoomIn,
+    '<Double-Control-Button-1>': zoomIn,
+    '<Control-+>': zoomIn,
+    '<Control-=>': zoomIn,
+    '<Alt-Button-1>': zoomOut,
+    '<Double-Alt-Button-1>': zoomOut,
+    '<Control-minus>': zoomOut,
+    '<Control-Key-1>': zoomOne,
+    '<Control-Alt-Key-0>': zoomOne,
+    '<ButtonRelease-1>': lambda event: canvas.config(cursor='arrow'),
+}
+"""Image Label bindings after image open, ``event: function`` pairs."""
+
+# ↓ Buttons properties dictionary
+butt = {
+    'font': ('helvetica', 12),
+    'cursor': 'hand2',
+    'border': '2',
+    'relief': 'groove',
+    'overrelief': 'ridge',
+    'foreground': 'SystemButtonText',
+    'background': 'SystemButtonFace',
+    'activeforeground': 'dark blue',
+    'activebackground': '#E5F1FB',
+}
+"""Buttons properties dictionary, keys are ``font``, ``cursor``, ``border``,
+    ``relief``, ``overrelief``, ``foreground``, ``background``,
+    ``activeforeground``, ``activebackground``."""
+
+# ↓ Info statuses dictionaries
+info_normal = {
+    'txt': f'Adaptive Average {__version__}',
+    'fg': 'grey',
+    'bg': 'grey90',
+}
+"""``info_string`` properties in normal state"""
+info_busy = {
+    'txt': 'BUSY, PLEASE WAIT',
+    'fg': 'red',
+    'bg': 'yellow',
+}
+"""``info_string`` properties in busy state"""
 
 """ ╔═══════════╗
     ║ Main body ║
@@ -763,33 +851,11 @@ whoever.transient(sortir)  # make control panel always on top
 whoever.protocol('WM_DELETE_WINDOW', lambda: None)  # block any attempt to close control panel
 sortir.protocol('WM_DELETE_WINDOW', DisMiss)  # just to be temporarily explicit
 
-# ↓ Buttons properties dictionary
-butt = {
-    'font': ('helvetica', 12),
-    'cursor': 'hand2',
-    'border': '2',
-    'relief': 'groove',
-    'overrelief': 'ridge',
-    'foreground': 'SystemButtonText',
-    'background': 'SystemButtonFace',
-    'activeforeground': 'dark blue',
-    'activebackground': '#E5F1FB',
-}
-"""Buttons properties dictionary, keys are ``font``, ``cursor``, ``border``,
-    ``relief``, ``overrelief``, ``foreground``, ``background``,
-    ``activeforeground``, ``activebackground``."""
-
-color_mode_str = ' '
-"""Image color mode info."""
-
-# ↓ Info statuses dictionaries
-info_normal = {'txt': f'Adaptive Average {__version__}', 'fg': 'grey', 'bg': 'grey90'}
-info_busy = {'txt': 'BUSY, PLEASE WAIT', 'fg': 'red', 'bg': 'yellow'}
 # ↓ Info string
 info_string = Label(
     whoever,
     text=info_normal['txt'],
-    font=('courier', 7),
+    font=('helvetica', 8),
     foreground=info_normal['fg'],
     background=info_normal['bg'],
     relief='groove',
@@ -1012,26 +1078,19 @@ transparent_controls = (spin_x, spin_y)
     │ Binding everything that does not need image │
     └────────────────────────────────────────────-┘ """
 # ↓ Info string binding for displaying filter execution time
-info_string.bind('<Enter>', lambda event=None: info_string.config(text=f'{operation} time: {round(timing, 3)} sec'))
+info_string.bind('<Enter>', lambda event=None: info_string.config(text=f'{operation} time: {round(timing, 3)} sec (journal {"ON" if logging else "OFF"})'))
 info_string.bind('<Leave>', lambda event=None: info_string.config(text=info_normal['txt']))
 info_string.bind('<Control-Button-1>', lambda event=None: [whoever.clipboard_clear(), whoever.clipboard_append(f'{timing}\n')])
+info_string.bind('<Alt-Button-1>', turnLogging)
 # ↓ "File..." mouseover
 butt_file.bind('<Enter>', lambda event=None: butt_file.config(relief=butt['overrelief']))
 butt_file.bind('<Leave>', lambda event=None: butt_file.config(relief=butt['relief']))
 # ↓ Double-click image area to "Open..."
 zanyato.bind('<Double-Button-1>', GetSource)
 frame_preview.bind('<Double-Button-1>', GetSource)
-# ↓ Whole whoever binding menu, "Open..." and "Exit"
-sortir.bind_all('<Button-3>', ShowMenu)
-sortir.bind_all('<Alt-f>', ShowMenu)
-sortir.bind_all('<Alt-F>', ShowMenu)
-sortir.bind_all('<F1>', ShowHelp)
-sortir.bind_all('<Control-o>', GetSource)
-sortir.bind_all('<Control-O>', GetSource)
-sortir.bind_all('<Control-q>', DisMiss)
-sortir.bind_all('<Control-Q>', DisMiss)
-sortir.bind_all('<Control-w>', DisMiss)
-sortir.bind_all('<Control-W>', DisMiss)
+# ↓ Whole sortir binding menu, "Open..." and "Exit"
+for happens, function in bind_all.items():
+    sortir.bind_all(happens, function)
 
 # ↓ Make Tkinter build GUI to make it calculate requested sizes.
 sortir.update()
@@ -1044,8 +1103,9 @@ whoever.minsize(whoever.winfo_reqwidth(), whoever.winfo_reqheight())
 # ↓ Setting maxsize to fit 90% of screen
 sortir.maxsize(9 * sortir.winfo_screenwidth() // 10, 9 * sortir.winfo_screenheight() // 10)
 # ↓ Align windows and center window group horizontally, +64 vertically
-sortir.geometry(f'+{(sortir.winfo_screenwidth() - whoever.winfo_width() - sortir.winfo_width() + 32) // 2}+64')
-whoever.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width() - whoever.winfo_width()) // 2 + sortir.winfo_width() - 32}+128')
+sortir.geometry(f'+{(sortir.winfo_screenwidth() - sortir.winfo_width() - whoever.winfo_width() + 64) // 2}+64')
+sortir.update()
+whoever.geometry(f'+{sortir.winfo_rootx() + sortir.winfo_reqwidth() - 64}+{sortir.winfo_rooty() + 32}')
 
 # ↓ Experimental alpha usage on focus. Looks good for useability but compatibility seems to suck.
 """whoever.bind('<Enter>', lambda event=None: whoever.attributes('-alpha', 0.9))
